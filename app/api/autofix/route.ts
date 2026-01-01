@@ -23,7 +23,7 @@ export async function POST(req: NextRequest) {
                     await runAutofix({
                         issueUrl,
                         repoUrl,
-                        githubToken,
+                        githubToken: githubToken || process.env.GITHUB_TOKEN || '',
                         openaiKey: openaiKey || process.env.API_KEY || '',
                         onLog: (message, level = 'info') => {
                             sendLog({ message, level, timestamp: new Date().toISOString() });

@@ -39,24 +39,31 @@ export async function POST(
         await issue.save();
 
         // 3. Orchestration
-        const githubToken = process.env.GITHUB_TOKEN;
+        const { getServerSession } = require("next-auth/next");
+        const { authOptions } = require("@/app/api/auth/[...nextauth]/route");
+        const session = await getServerSession(authOptions);
+
+        const githubToken = (session as any)?.accessToken || process.env.GITHUB_TOKEN;
         const aiKey = process.env.API_KEY;
 
         if (!githubToken || !aiKey) {
             issue.status = 'open';
             await issue.save();
-            return NextResponse.json({ error: "Server misconfigured: Missing GITHUB_TOKEN or API_KEY" }, { status: 500 });
+            return NextResponse.json({
+                error: !githubToken ? "Missing GitHub Token: Please sign in again." : "Server misconfigured: Missing API_KEY"
+            }, { status: 500 });
         }
 
         const octokit = new Octokit({ auth: githubToken });
 
         // 4. Create "Shadow Issue" on GitHub to get a valid URL for the black-box solver
         // This allows the existing runAutofix to fetch the context naturally.
+        const mention = (session as any)?.user?.githubUsername ? `@${(session as any).user.githubUsername}` : '';
         const { data: ghIssue } = await octokit.issues.create({
             owner: project.owner,
             repo: project.repo,
             title: `[USDMP] ${issue.title}`,
-            body: `**Issue Type**: ${issue.type.toUpperCase()}\n\n${issue.description}\n\n*Triggered via USDMP Portal*`,
+            body: `**Issue Type**: ${issue.type.toUpperCase()}\n\n${issue.description}\n\n*Triggered by ${mention} via DeployOps Portal*`,
         });
 
         // 5. Invoke AI Solver (Black Box)
@@ -84,7 +91,7 @@ export async function POST(
                 // Trigger Smart Notification for PR
                 await notifyAllProjectMembers(project._id.toString(), {
                     type: 'pr_created',
-                    message: `⚡ AI created a Pull Request for "${issue.title}"`,
+                    message: `⚡ AI created a Pull Request for "${issue.title}" @${(session as any)?.user?.githubUsername || ''}`,
                     link: result.prUrl,
                     isCritical: false
                 });

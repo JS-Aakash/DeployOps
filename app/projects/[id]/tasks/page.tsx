@@ -52,10 +52,18 @@ export default function ProjectTasksPage({ params }: { params: Promise<{ id: str
                 fetch(`/api/projects/${id}/tasks`),
                 fetch(`/api/projects/${id}/members`)
             ]);
-            setTasks(await taskRes.json());
-            setMembers(await memberRes.json());
+
+            if (taskRes.ok) {
+                const taskData = await taskRes.json();
+                setTasks(Array.isArray(taskData) ? taskData : []);
+            }
+
+            if (memberRes.ok) {
+                const memberData = await memberRes.json();
+                setMembers(Array.isArray(memberData) ? memberData : []);
+            }
         } catch (e) {
-            console.error(e);
+            console.error("Fetch Data Error:", e);
         } finally {
             setIsLoading(false);
         }
@@ -101,7 +109,7 @@ export default function ProjectTasksPage({ params }: { params: Promise<{ id: str
                     </Link>
                     <div>
                         <h2 className="text-3xl font-bold text-white tracking-tight">Team Tasks</h2>
-                        <p className="text-gray-400 mt-1">Coordinate human execution for this project.</p>
+                        <p className="text-gray-400 mt-1">Coordinate Tasks execution for this project.</p>
                     </div>
                 </div>
                 <button
@@ -118,7 +126,7 @@ export default function ProjectTasksPage({ params }: { params: Promise<{ id: str
                     <div className="flex items-center justify-between mb-6">
                         <h3 className="text-xl font-bold text-white flex items-center gap-2">
                             <CheckSquare className="w-5 h-5 text-blue-500" />
-                            New Human Assignment
+                            New Task Assignment
                         </h3>
                         <button onClick={() => setIsAdding(false)} className="text-gray-500 hover:text-white"><X className="w-6 h-6" /></button>
                     </div>
@@ -148,17 +156,27 @@ export default function ProjectTasksPage({ params }: { params: Promise<{ id: str
                                     value={assignedTo} onChange={e => setAssignedTo(e.target.value)} required
                                     className="w-full bg-black/40 border border-gray-800 rounded-xl px-4 py-3 text-white focus:border-blue-500 outline-none"
                                 >
-                                    <option value="">Select a human developer...</option>
+                                    <option value="">Select a developer...</option>
                                     {/* Ensure current user is always selectable */}
                                     <optgroup label="Me">
-                                        <option value={status === 'authenticated' ? (session?.user as any)?.id || "" : ""}>
-                                            {session?.user?.name} (You)
+                                        <option value={(session?.user as any)?.id || "current-user"}>
+                                            {session?.user?.name || "Current User"} (You)
                                         </option>
                                     </optgroup>
                                     <optgroup label="Team Members">
-                                        {members.filter(m => m.userId && m.userId._id !== (session?.user as any)?.id).map(m => (
-                                            <option key={m.userId._id} value={m.userId._id}>{m.userId.name} ({m.role})</option>
-                                        ))}
+                                        {members
+                                            .filter(m => m.userId && m.userId._id && m.userId._id !== (session?.user as any)?.id)
+                                            .length > 0 ? (
+                                            members
+                                                .filter(m => m.userId && m.userId._id && m.userId._id !== (session?.user as any)?.id)
+                                                .map(m => (
+                                                    <option key={m.userId._id} value={m.userId._id}>
+                                                        {m.userId.name || m.userId.email || "Unnamed Member"} ({m.role})
+                                                    </option>
+                                                ))
+                                        ) : (
+                                            <option disabled>No other members found...</option>
+                                        )}
                                     </optgroup>
                                 </select>
                             </div>

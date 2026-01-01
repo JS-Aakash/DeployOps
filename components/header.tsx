@@ -2,7 +2,8 @@
 
 import { useState, useEffect, useRef } from "react";
 import { useSession, signOut } from "next-auth/react";
-import { LogOut, Search, User, X, Folder, FileText, CheckSquare, BookOpen, ArrowRight } from "lucide-react";
+import { LogOut, Search, User, X, Folder, FileText, CheckSquare, BookOpen, ArrowRight, Bell } from "lucide-react";
+import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 
@@ -271,9 +272,13 @@ export function Header() {
                 {session ? (
                     <div className="flex items-center gap-4">
                         <div className="flex items-center gap-3">
+                            {/* Notification Tray */}
+                            <NotificationTray />
+
+                            <div className="h-4 w-px bg-gray-800 mx-2" />
                             <div className="text-right hidden sm:block">
                                 <p className="text-sm font-medium text-white">{session.user?.name}</p>
-                                <p className="text-[10px] text-gray-500 uppercase tracking-wider font-bold">Developer</p>
+                                <p className="text-[10px] text-gray-500 uppercase tracking-wider font-bold">Contributor</p>
                             </div>
                             <img
                                 src={session.user?.image || ""}
@@ -297,5 +302,95 @@ export function Header() {
                 )}
             </div>
         </header>
+    );
+}
+
+function NotificationTray() {
+    const [notifications, setNotifications] = useState<any[]>([]);
+    const [isOpen, setIsOpen] = useState(false);
+    const trayRef = useRef<HTMLDivElement>(null);
+    const router = useRouter();
+
+    const fetchNotifications = async () => {
+        try {
+            const res = await fetch('/api/notifications');
+            if (res.ok) {
+                const data = await res.json();
+                setNotifications(data);
+            }
+        } catch (e) {
+            console.error("Header notify error");
+        }
+    };
+
+    useEffect(() => {
+        fetchNotifications();
+        const interval = setInterval(fetchNotifications, 30000); // 30s polling
+        return () => clearInterval(interval);
+    }, []);
+
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (trayRef.current && !trayRef.current.contains(event.target as Node)) {
+                setIsOpen(false);
+            }
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, []);
+
+    const unreadCount = notifications.filter(n => !n.isRead).length;
+
+    return (
+        <div className="relative" ref={trayRef}>
+            <button
+                onClick={() => setIsOpen(!isOpen)}
+                className={cn(
+                    "p-2.5 rounded-xl transition-all relative group",
+                    isOpen ? "bg-blue-500/10 text-blue-500 border border-blue-500/20" : "text-gray-400 hover:bg-gray-900 border border-transparent"
+                )}
+            >
+                <Bell className="w-5 h-5 overflow-visible" />
+                {unreadCount > 0 && (
+                    <span className="absolute top-2 right-2 w-2 h-2 bg-red-500 rounded-full animate-pulse border border-black shadow-[0_0_10px_rgba(239,68,68,0.5)]" />
+                )}
+            </button>
+
+            {isOpen && (
+                <div className="absolute right-0 mt-3 w-80 bg-gray-900 border border-gray-800 rounded-2xl shadow-2xl z-50 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200">
+                    <div className="p-4 border-b border-gray-800 flex items-center justify-between">
+                        <h3 className="text-sm font-bold text-white uppercase tracking-wider">Notifications</h3>
+                        <Link href="/notifications" onClick={() => setIsOpen(false)} className="text-[10px] text-blue-400 hover:underline">View All</Link>
+                    </div>
+                    <div className="max-h-96 overflow-y-auto custom-scrollbar">
+                        {notifications.length === 0 ? (
+                            <div className="p-8 text-center text-gray-500">
+                                <p className="text-sm">No notifications</p>
+                            </div>
+                        ) : (
+                            notifications.slice(0, 5).map(n => (
+                                <button
+                                    key={n._id}
+                                    onClick={() => {
+                                        if (n.link) router.push(n.link);
+                                        setIsOpen(false);
+                                    }}
+                                    className={cn(
+                                        "w-full p-4 text-left border-b border-gray-800/50 hover:bg-white/5 transition-all relative group",
+                                        !n.isRead && "bg-blue-500/5"
+                                    )}
+                                >
+                                    {!n.isRead && <div className="absolute left-0 top-0 bottom-0 w-1 bg-blue-500" />}
+                                    <p className={cn("text-xs leading-relaxed", !n.isRead ? "text-gray-200 font-medium" : "text-gray-500")}>
+                                        {n.message}
+                                    </p>
+                                    <p className="text-[10px] text-gray-600 mt-1">{new Date(n.createdAt).toLocaleDateString()}</p>
+                                </button>
+                            ))
+                        )}
+                    </div>
+                </div>
+            )}
+        </div>
     );
 }

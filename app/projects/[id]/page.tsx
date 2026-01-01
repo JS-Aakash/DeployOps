@@ -35,7 +35,7 @@ export default function ProjectDashboardPage({ params }: { params: Promise<{ id:
     const [isLoading, setIsLoading] = useState(true);
     const [isSyncing, setIsSyncing] = useState(false);
     const [isModalOpen, setIsModalOpen] = useState(false);
-    const [newMember, setNewMember] = useState({ name: "", email: "", role: "developer" });
+    const [newMember, setNewMember] = useState({ githubUsername: "", email: "", role: "developer" });
     const [error, setError] = useState<string | null>(null);
 
     const fetchMembers = async () => {
@@ -70,11 +70,16 @@ export default function ProjectDashboardPage({ params }: { params: Promise<{ id:
             const res = await fetch(`/api/projects/${id}/members`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(newMember)
+                body: JSON.stringify({
+                    name: newMember.githubUsername, // Use username as initial name
+                    email: newMember.email,
+                    role: newMember.role,
+                    githubUsername: newMember.githubUsername
+                })
             });
             if (res.ok) {
                 setIsModalOpen(false);
-                setNewMember({ name: "", email: "", role: "developer" });
+                setNewMember({ githubUsername: "", email: "", role: "developer" });
                 fetchMembers();
             } else {
                 const data = await res.json();
@@ -103,6 +108,25 @@ export default function ProjectDashboardPage({ params }: { params: Promise<{ id:
             alert(e.message);
         } finally {
             setIsSyncing(false);
+        }
+    };
+
+    const handleRemoveMember = async (memberId: string) => {
+        if (!confirm("Are you sure you want to remove this member from the project?")) return;
+
+        try {
+            const res = await fetch(`/api/projects/${id}/members?memberId=${memberId}`, {
+                method: "DELETE"
+            });
+            if (res.ok) {
+                fetchMembers();
+            } else {
+                const data = await res.json();
+                alert(data.error || "Failed to remove member");
+            }
+        } catch (e: any) {
+            console.error(e);
+            alert("Error removing member");
         }
     };
 
@@ -288,7 +312,10 @@ export default function ProjectDashboardPage({ params }: { params: Promise<{ id:
                                             )}
                                         </td>
                                         <td className="px-6 py-4 text-right">
-                                            <button className="p-2 text-gray-500 hover:text-red-500 hover:bg-red-500/10 rounded-xl transition-all">
+                                            <button
+                                                onClick={() => handleRemoveMember(member._id)}
+                                                className="p-2 text-gray-500 hover:text-red-500 hover:bg-red-500/10 rounded-xl transition-all"
+                                            >
                                                 <Trash2 className="w-5 h-5" />
                                             </button>
                                         </td>
@@ -307,14 +334,19 @@ export default function ProjectDashboardPage({ params }: { params: Promise<{ id:
                         <h3 className="text-2xl font-bold text-white mb-6">Add New Member</h3>
                         <form onSubmit={handleManualAdd} className="space-y-5">
                             <div className="space-y-2">
-                                <label className="text-sm font-medium text-gray-400 text-uppercase tracking-widest">Full Name</label>
-                                <input
-                                    required
-                                    type="text"
-                                    value={newMember.name}
-                                    onChange={(e) => setNewMember({ ...newMember, name: e.target.value })}
-                                    className="w-full px-4 py-3 bg-black/50 border border-gray-800 rounded-xl focus:outline-none focus:border-blue-500 transition-all font-medium text-gray-200"
-                                />
+                                <label className="text-sm font-medium text-gray-400 text-uppercase tracking-widest">GitHub Username</label>
+                                <div className="relative">
+                                    <Github className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
+                                    <input
+                                        required
+                                        type="text"
+                                        placeholder="e.g. jsaakash"
+                                        value={newMember.githubUsername}
+                                        onChange={(e) => setNewMember({ ...newMember, githubUsername: e.target.value })}
+                                        className="w-full pl-12 pr-4 py-3 bg-black/50 border border-gray-800 rounded-xl focus:outline-none focus:border-blue-500 transition-all font-medium text-gray-200"
+                                    />
+                                </div>
+                                <p className="text-[10px] text-gray-400">This will trigger an invitation and link their profile.</p>
                             </div>
                             <div className="space-y-2">
                                 <label className="text-sm font-medium text-gray-400 text-uppercase tracking-widest">Email Address</label>

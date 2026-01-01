@@ -24,7 +24,7 @@ export async function GET(
         // Initialize GitHub Client
         // Note: In production, we should decrypt the token. Ideally project.githubToken if it exists, 
         // or a global token if using an app. For now we assume a process env fallback or project token.
-        const token = project.vercelToken || process.env.GITHUB_TOKEN; // Fallback for demo
+        const token = (session as any)?.accessToken || project.vercelToken || process.env.GITHUB_TOKEN; // Fallback for demo
         if (!token) {
             return NextResponse.json({ error: "GitHub token not configured for this project" }, { status: 400 });
         }

@@ -15,7 +15,7 @@ export async function POST(req: NextRequest) {
 
     try {
         const body = await req.json();
-        const { title, description, priority, projectId, assigneeId } = body;
+        const { title, description, priority, projectId, assignedTo: bodyAssignedTo } = body;
 
         const user = await User.findOne({ email: session.user.email.toLowerCase() });
         if (!user) {
@@ -28,20 +28,22 @@ export async function POST(req: NextRequest) {
             return NextResponse.json({ error: "Project not found" }, { status: 404 });
         }
 
+        const targetAssigneeId = bodyAssignedTo || user._id;
+
         // Create Task
         const task = await Task.create({
             title,
             description,
             priority,
             projectId,
-            assignedTo: assigneeId || user._id, // Default to self if no assignee
+            assignedTo: targetAssigneeId,
             createdBy: user._id,
             status: 'todo'
         });
 
         // Send Notification if assigned to someone else
-        if (assigneeId && assigneeId !== user._id.toString()) {
-            await createNotification(assigneeId, {
+        if (targetAssigneeId.toString() !== user._id.toString()) {
+            await createNotification(targetAssigneeId.toString(), {
                 type: 'task_assigned',
                 message: `You have been assigned a new task: ${title}`,
                 link: '/tasks',
@@ -69,7 +71,7 @@ export async function GET(req: NextRequest) {
     // Fetch tasks where user is assignee OR creator
     const tasks = await Task.find({
         $or: [
-            { assigneeId: user._id },
+            { assignedTo: user._id },
             { createdBy: user._id }
         ]
     })

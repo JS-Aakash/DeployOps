@@ -47,7 +47,7 @@ export async function POST(
             branchName: 'main', // TODO: Fetch default branch from project settings if available
             commitSha,
             prNumber,
-            githubToken: project.vercelToken || process.env.GITHUB_TOKEN || "", // Fallback
+            githubToken: (session as any)?.accessToken || project.vercelToken || process.env.GITHUB_TOKEN || "", // Fallback
             onLog: (msg) => console.log(`[Rollback-${id}] ${msg}`)
         });
 

@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import dbConnect from '@/lib/mongodb';
 import { Task } from '@/models';
 import mongoose from 'mongoose';
+import { authorize, authError } from '@/lib/auth-utils';
 
 // GET /api/projects/[id]/tasks - List tasks for a specific project
 export async function GET(
@@ -9,6 +10,12 @@ export async function GET(
     { params }: { params: Promise<{ id: string }> }
 ) {
     const { id } = await params;
+
+    // Authorization Check
+    if (!(await authorize(id, ['admin', 'lead', 'developer', 'viewer']))) {
+        return authError();
+    }
+
     await dbConnect();
     try {
         const tasks = await Task.find({ projectId: new mongoose.Types.ObjectId(id) })

@@ -240,7 +240,7 @@ export async function runAutofix(opts: RunOptions) {
         } catch (e: any) {
             const errHash = e.message || "";
             if (errHash.includes("403") || errHash.includes("Permission denied")) {
-                throw new Error(`Git Push Failed (403 Forbidden). \nPossible causes:\n1. Your GITHUB_TOKEN in .env.local does not have 'repo' (write) scope.\n2. You are using a Fine-grained Token without 'Contents: Write' access.\n3. The token has expired.`);
+                throw new Error(`Git Push Failed (403 Forbidden). \nPossible causes:\n1. The GitHub token being used (session or .env) does not have 'repo' (write) scope.\n2. You are using a Fine-grained Token without 'Contents: Write' access.\n3. The token has expired or is invalid.`);
             }
             throw e;
         }

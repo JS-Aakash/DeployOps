@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server';
 import dbConnect from '@/lib/mongodb';
 import { Issue } from '@/models';
 import { Octokit } from '@octokit/rest';
+import { getServerSession } from "next-auth/next";
+import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 
 export async function POST(req: Request) {
     await dbConnect();
@@ -31,7 +33,9 @@ export async function POST(req: Request) {
         const repo = urlParts[4];
         const pullNumber = parseInt(urlParts[6]);
 
-        const octokit = new Octokit({ auth: process.env.GITHUB_TOKEN });
+        const session = await getServerSession(authOptions);
+        const githubToken = (session as any)?.accessToken || process.env.GITHUB_TOKEN;
+        const octokit = new Octokit({ auth: githubToken });
 
         // 1. Perform Merge on GitHub
         try {

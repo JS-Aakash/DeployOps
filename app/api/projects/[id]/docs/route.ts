@@ -10,6 +10,12 @@ export async function GET(
     { params }: { params: Promise<{ id: string }> }
 ) {
     const { id } = await params;
+
+    // Authorization Check
+    if (!(await authorize(id, ['admin', 'lead', 'developer', 'viewer']))) {
+        return authError();
+    }
+
     console.log(`GET Docs reached for project: ${id}`);
     await dbConnect();
     try {

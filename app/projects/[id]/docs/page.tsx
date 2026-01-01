@@ -14,10 +14,13 @@ import {
     Cpu,
     Info,
     ArrowLeft,
-    Loader2
+    Loader2,
+    Sparkles
 } from "lucide-react";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 
 interface Doc {
     _id: string;
@@ -36,7 +39,6 @@ const CATEGORIES = [
     { id: 'general', label: 'General', icon: Info, color: 'text-gray-400' }
 ];
 
-import { Sparkles } from "lucide-react";
 
 export default function ProjectDocsPage({ params }: { params: Promise<{ id: string }> }) {
     const { id } = use(params);
@@ -163,8 +165,8 @@ export default function ProjectDocsPage({ params }: { params: Promise<{ id: stri
                                                 setIsCreating(false);
                                             }}
                                             className={`w-full text-left px-4 py-3 rounded-xl text-sm font-medium transition-all flex items-center justify-between group ${selectedDoc?._id === doc._id
-                                                    ? "bg-blue-600/10 text-blue-400 border border-blue-500/20"
-                                                    : "text-gray-500 hover:bg-gray-800/50 hover:text-gray-300 border border-transparent"
+                                                ? "bg-blue-600/10 text-blue-400 border border-blue-500/20"
+                                                : "text-gray-500 hover:bg-gray-800/50 hover:text-gray-300 border border-transparent"
                                                 }`}
                                         >
                                             <span className="truncate uppercase tracking-tight">{doc.title}</span>
@@ -265,9 +267,11 @@ export default function ProjectDocsPage({ params }: { params: Promise<{ id: stri
                                 <div className="bg-blue-500/5 border-l-4 border-blue-500 p-4 mb-8 rounded-r-xl italic text-gray-400 text-sm">
                                     This documentation provides authoritative technical context for the AI and team.
                                 </div>
-                                <pre className="whitespace-pre-wrap font-sans text-gray-300 leading-relaxed text-lg">
-                                    {selectedDoc.content}
-                                </pre>
+                                <div className="prose prose-invert prose-blue max-w-none">
+                                    <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                                        {selectedDoc.content}
+                                    </ReactMarkdown>
+                                </div>
 
                                 <div className="mt-12 pt-8 border-t border-gray-800 flex items-center justify-between text-[10px] font-black text-gray-600 uppercase tracking-widest">
                                     <span>Created By: {selectedDoc.createdBy.name}</span>
