@@ -20,6 +20,11 @@ const ProjectSchema = new Schema({
     vercelToken: { type: String },
     netlifySiteId: { type: String },
     netlifyToken: { type: String },
+    renderDeployHook: { type: String }, // Render Deploy Hook URL
+    renderServiceName: { type: String },
+    productionUrl: { type: String },
+    deployProvider: { type: String, enum: ['none', 'netlify', 'render'], default: 'none' },
+    deployStatus: { type: String, enum: ['not_configured', 'ready', 'deploying', 'live', 'failed'], default: 'not_configured' },
 }, { timestamps: true });
 
 // ProjectMember Schema (Association table with Role)

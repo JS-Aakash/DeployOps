@@ -13,13 +13,21 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
         return <>{children}</>;
     }
 
+    const isEditorPage = pathname.startsWith("/editor/");
+
     return (
-        <div className="flex h-screen overflow-hidden">
+        <div className="flex h-screen overflow-hidden text-gray-200 antialiased">
             <Sidebar />
             <div className="flex-1 flex flex-col min-w-0">
                 <Header />
-                <main className="flex-1 overflow-y-auto p-8 custom-scrollbar">
-                    <div className="max-w-7xl mx-auto">
+                <main className={cn(
+                    "flex-1 overflow-hidden custom-scrollbar",
+                    isEditorPage ? "p-4" : "p-8 overflow-y-auto"
+                )}>
+                    <div className={cn(
+                        "h-full w-full",
+                        isEditorPage ? "max-w-none ml-0" : "max-w-7xl mx-auto"
+                    )}>
                         {children}
                     </div>
                 </main>

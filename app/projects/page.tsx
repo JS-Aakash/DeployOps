@@ -10,7 +10,11 @@ import {
     X,
     Loader2,
     ExternalLink,
-    AlertCircle
+    AlertCircle,
+    FolderPlus,
+    Download,
+    Lock,
+    Globe
 } from "lucide-react";
 
 export default function ProjectsPage() {
@@ -24,7 +28,9 @@ export default function ProjectsPage() {
     const [formData, setFormData] = useState({
         name: "",
         description: "",
-        repoUrl: ""
+        repoUrl: "",
+        createRepo: false,
+        isPrivate: true
     });
 
     const fetchProjects = async () => {
@@ -64,7 +70,7 @@ export default function ProjectsPage() {
             });
             if (res.ok) {
                 setIsModalOpen(false);
-                setFormData({ name: "", description: "", repoUrl: "" });
+                setFormData({ name: "", description: "", repoUrl: "", createRepo: false, isPrivate: true });
                 fetchProjects();
             } else {
                 const data = await res.json();
@@ -164,47 +170,101 @@ export default function ProjectsPage() {
                         <h3 className="text-2xl font-bold text-white mb-6">Create Project</h3>
 
                         <form onSubmit={handleSubmit} className="space-y-6">
+                            <div className="flex p-1 bg-black/50 border border-gray-800 rounded-2xl">
+                                <button
+                                    type="button"
+                                    onClick={() => setFormData({ ...formData, createRepo: false })}
+                                    className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${!formData.createRepo ? 'bg-blue-600 text-white shadow-lg' : 'text-gray-500 hover:text-gray-300'}`}
+                                >
+                                    <Download className="w-4 h-4" />
+                                    Import Repo
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => setFormData({ ...formData, createRepo: true })}
+                                    className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${formData.createRepo ? 'bg-blue-600 text-white shadow-lg' : 'text-gray-500 hover:text-gray-300'}`}
+                                >
+                                    <FolderPlus className="w-4 h-4" />
+                                    New Native
+                                </button>
+                            </div>
+
                             <div className="space-y-2">
-                                <label className="text-sm font-medium text-gray-400">Project Name</label>
+                                <label className="text-sm font-black uppercase tracking-widest text-gray-400">Project Name</label>
                                 <input
                                     required
                                     type="text"
                                     value={formData.name}
                                     onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                                     placeholder="e.g. Finance Core System"
-                                    className="w-full px-4 py-3 bg-black/50 border border-gray-800 rounded-xl focus:outline-none focus:border-blue-500 transition-all"
+                                    className="w-full px-4 py-3 bg-black border border-gray-800 rounded-xl focus:outline-none focus:border-blue-500 transition-all text-white font-medium"
                                 />
                             </div>
 
                             <div className="space-y-2">
-                                <label className="text-sm font-medium text-gray-400">Description</label>
+                                <label className="text-sm font-black uppercase tracking-widest text-gray-400">Description</label>
                                 <textarea
                                     rows={3}
                                     value={formData.description}
                                     onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                                     placeholder="What is this project about?"
-                                    className="w-full px-4 py-3 bg-black/50 border border-gray-800 rounded-xl focus:outline-none focus:border-blue-500 transition-all resize-none"
+                                    className="w-full px-4 py-3 bg-black border border-gray-800 rounded-xl focus:outline-none focus:border-blue-500 transition-all resize-none text-white font-medium"
                                 />
                             </div>
 
-                            <div className="space-y-2">
-                                <label className="text-sm font-medium text-gray-400">GitHub Repository URL</label>
-                                <input
-                                    required
-                                    type="url"
-                                    value={formData.repoUrl}
-                                    onChange={(e) => setFormData({ ...formData, repoUrl: e.target.value })}
-                                    placeholder="https://github.com/owner/repo"
-                                    className="w-full px-4 py-3 bg-black/50 border border-gray-800 rounded-xl focus:outline-none focus:border-blue-500 transition-all"
-                                />
-                            </div>
+                            {!formData.createRepo ? (
+                                <div className="space-y-2 animate-in fade-in slide-in-from-top-2">
+                                    <label className="text-sm font-black uppercase tracking-widest text-gray-400">GitHub Repository URL</label>
+                                    <input
+                                        required={!formData.createRepo}
+                                        type="url"
+                                        value={formData.repoUrl}
+                                        onChange={(e) => setFormData({ ...formData, repoUrl: e.target.value })}
+                                        placeholder="https://github.com/owner/repo"
+                                        className="w-full px-4 py-3 bg-black border border-gray-800 rounded-xl focus:outline-none focus:border-blue-500 transition-all text-white font-mono text-sm"
+                                    />
+                                    <p className="text-[10px] text-gray-600 uppercase font-black">Link an existing GitHub repo to start tracking.</p>
+                                </div>
+                            ) : (
+                                <div className="space-y-4 animate-in fade-in slide-in-from-top-2 py-2 px-4 bg-blue-500/5 rounded-2xl border border-blue-500/10">
+                                    <div className="flex items-center justify-between">
+                                        <div className="flex items-center gap-3">
+                                            <div className="p-2 rounded-lg bg-blue-500/10">
+                                                {formData.isPrivate ? <Lock className="w-4 h-4 text-blue-400" /> : <Globe className="w-4 h-4 text-blue-400" />}
+                                            </div>
+                                            <div>
+                                                <p className="text-xs font-black text-white uppercase tracking-widest">{formData.isPrivate ? 'Private Repository' : 'Public Repository'}</p>
+                                                <p className="text-[10px] text-gray-500 font-bold uppercase">Visibility on GitHub</p>
+                                            </div>
+                                        </div>
+                                        <button
+                                            type="button"
+                                            onClick={() => setFormData({ ...formData, isPrivate: !formData.isPrivate })}
+                                            className={`w-12 h-6 rounded-full transition-all relative ${formData.isPrivate ? 'bg-blue-600' : 'bg-gray-700'}`}
+                                        >
+                                            <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${formData.isPrivate ? 'left-7' : 'left-1'}`} />
+                                        </button>
+                                    </div>
+                                    <p className="text-[10px] text-blue-400 font-black uppercase tracking-wider">DeployOps will automatically initialize this on your GitHub account.</p>
+                                </div>
+                            )}
 
                             <button
                                 type="submit"
                                 disabled={isSubmitting}
-                                className="w-full py-4 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-500 transition-all shadow-lg shadow-blue-500/20 disabled:opacity-50"
+                                className="w-full py-4 bg-blue-600 text-white rounded-2xl font-black text-xs uppercase tracking-[0.2em] hover:bg-blue-500 transition-all shadow-xl shadow-blue-500/20 flex items-center justify-center gap-2 group disabled:opacity-50"
                             >
-                                {isSubmitting ? "Creating..." : "Launch Project"}
+                                {isSubmitting ? (
+                                    <>
+                                        <Loader2 className="w-4 h-4 animate-spin" />
+                                        <span>Initializing...</span>
+                                    </>
+                                ) : (
+                                    <>
+                                        <span>{formData.createRepo ? "Create & Initialize" : "Import Project"}</span>
+                                        <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                                    </>
+                                )}
                             </button>
                         </form>
                     </div>

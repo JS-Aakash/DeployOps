@@ -32,6 +32,8 @@ interface PRDetails {
     createdAt: string;
     mergedAt?: string;
     error?: string;
+    author?: { name: string; avatar: string };
+    isAI?: boolean;
 }
 
 export default function PullRequestsPage({ params }: { params: Promise<{ id: string }> }) {
@@ -42,6 +44,7 @@ export default function PullRequestsPage({ params }: { params: Promise<{ id: str
     const [isMerging, setIsMerging] = useState(false);
     const [showMergeConfirm, setShowMergeConfirm] = useState(false);
     const [headerError, setHeaderError] = useState<string | null>(null);
+    const [searchQuery, setSearchQuery] = useState("");
 
     const fetchPrs = async () => {
         try {
@@ -118,6 +121,8 @@ export default function PullRequestsPage({ params }: { params: Promise<{ id: str
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
                         <input
                             placeholder="Filter PRs..."
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
                             className="pl-10 pr-4 py-2.5 bg-gray-900 border border-gray-800 rounded-xl text-sm text-white focus:outline-none focus:border-blue-500 transition-all w-64"
                         />
                     </div>
@@ -156,55 +161,69 @@ export default function PullRequestsPage({ params }: { params: Promise<{ id: str
                                 </td>
                             </tr>
                         ) : (
-                            prs.map((pr) => (
-                                <tr key={pr.issueId} className="hover:bg-white/5 transition-colors group">
-                                    <td className="px-6 py-6">
-                                        <div className="flex items-center gap-4">
-                                            <div className="p-2.5 rounded-lg bg-blue-500/10 border border-blue-500/20">
-                                                <GitPullRequest className="w-5 h-5 text-blue-500" />
-                                            </div>
-                                            <div>
-                                                <h4 className="text-white font-bold group-hover:text-blue-400 transition-colors">{pr.ghTitle || pr.issueTitle}</h4>
-                                                <div className="flex items-center gap-2 mt-1">
-                                                    <a href={pr.prUrl} target="_blank" className="text-[10px] text-gray-500 hover:text-blue-400 flex items-center gap-1">
-                                                        <ExternalLink className="w-3 h-3" /> View on GitHub
-                                                    </a>
-                                                    <span className="text-[10px] text-gray-700 font-mono tracking-tighter">AI AGENT: AUTOFIX-v1</span>
+                            prs
+                                .filter(pr => (pr.ghTitle || pr.issueTitle || "").toLowerCase().includes(searchQuery.toLowerCase()))
+                                .map((pr) => (
+                                    <tr key={pr.issueId} className="hover:bg-white/5 transition-colors group">
+                                        <td className="px-6 py-6">
+                                            <div className="flex items-center gap-4">
+                                                <div className="relative">
+                                                    <div className="p-2.5 rounded-lg bg-blue-500/10 border border-blue-500/20">
+                                                        <GitPullRequest className="w-5 h-5 text-blue-500" />
+                                                    </div>
+                                                    {pr.author?.avatar && (
+                                                        <img src={pr.author.avatar} alt="" className="absolute -bottom-1 -right-1 w-5 h-5 rounded-md border border-gray-800" />
+                                                    )}
+                                                </div>
+                                                <div>
+                                                    <div className="flex items-center gap-2">
+                                                        <h4 className="text-white font-bold group-hover:text-blue-400 transition-colors">{pr.ghTitle || pr.issueTitle}</h4>
+                                                        {pr.isAI && (
+                                                            <span className="px-1.5 py-0.5 rounded text-[8px] font-black bg-blue-500 text-white uppercase tracking-tighter">AI</span>
+                                                        )}
+                                                    </div>
+                                                    <div className="flex items-center gap-2 mt-1">
+                                                        <a href={pr.prUrl} target="_blank" className="text-[10px] text-gray-500 hover:text-blue-400 flex items-center gap-1">
+                                                            <ExternalLink className="w-3 h-3" /> View on GitHub
+                                                        </a>
+                                                        <span className="text-[10px] text-gray-700 font-mono tracking-tighter uppercase italic">
+                                                            BY: {pr.author?.name || 'UNKNOWN'}
+                                                        </span>
+                                                    </div>
                                                 </div>
                                             </div>
-                                        </div>
-                                    </td>
-                                    <td className="px-6 py-6 font-medium">
-                                        <div className="space-y-1.5">
-                                            <div className="flex items-center gap-1.5 text-xs text-gray-300">
-                                                <Info className="w-3.5 h-3.5 text-blue-400" />
-                                                <span>Issue: {pr.issueTitle}</span>
-                                            </div>
-                                            {pr.requirement && (
-                                                <div className="flex items-center gap-1.5 text-[10px] text-gray-500">
-                                                    <FileCode className="w-3 h-3 text-purple-400" />
-                                                    <span>Req: {pr.requirement.title}</span>
+                                        </td>
+                                        <td className="px-6 py-6 font-medium">
+                                            <div className="space-y-1.5">
+                                                <div className="flex items-center gap-1.5 text-xs text-gray-300">
+                                                    <Info className="w-3.5 h-3.5 text-blue-400" />
+                                                    <span>Issue: {pr.issueTitle}</span>
                                                 </div>
+                                                {pr.requirement && (
+                                                    <div className="flex items-center gap-1.5 text-[10px] text-gray-500">
+                                                        <FileCode className="w-3 h-3 text-purple-400" />
+                                                        <span>Req: {pr.requirement.title}</span>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </td>
+                                        <td className="px-6 py-6">
+                                            {pr.error ? (
+                                                <span className="text-xs text-red-500 italic">{pr.error}</span>
+                                            ) : (
+                                                getStatusBadge(pr)
                                             )}
-                                        </div>
-                                    </td>
-                                    <td className="px-6 py-6">
-                                        {pr.error ? (
-                                            <span className="text-xs text-red-500 italic">{pr.error}</span>
-                                        ) : (
-                                            getStatusBadge(pr)
-                                        )}
-                                    </td>
-                                    <td className="px-6 py-6 text-right">
-                                        <button
-                                            onClick={() => setSelectedPr(pr)}
-                                            className="px-6 py-2.5 bg-gray-800 text-white rounded-xl text-xs font-bold hover:bg-gray-700 transition-all border border-gray-700 opacity-0 group-hover:opacity-100"
-                                        >
-                                            Review AI Fix
-                                        </button>
-                                    </td>
-                                </tr>
-                            ))
+                                        </td>
+                                        <td className="px-6 py-6 text-right">
+                                            <button
+                                                onClick={() => setSelectedPr(pr)}
+                                                className="px-6 py-2.5 bg-gray-800 text-white rounded-xl text-xs font-bold hover:bg-gray-700 transition-all border border-gray-700 opacity-0 group-hover:opacity-100"
+                                            >
+                                                Review AI Fix
+                                            </button>
+                                        </td>
+                                    </tr>
+                                ))
                         )}
                     </tbody>
                 </table>

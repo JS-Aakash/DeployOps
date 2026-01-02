@@ -4,6 +4,7 @@ import os from 'os';
 import { execSync } from 'child_process';
 import OpenAI from 'openai';
 import { Octokit } from '@octokit/rest';
+import { callAI } from './ai-service';
 
 // Prompts
 const FIX_PROMPT_TEMPLATE = `You are an expert software engineer fixing a GitHub issue.
@@ -37,6 +38,7 @@ Analyze the issue and generate a fix. You MUST respond with valid JSON only.
 - Files that already have test files in the repo
 
 ❌ **DO NOT generate tests for**:
+- Node.js projects (automated test phase is disabled)
 - Frontend code (HTML, CSS, browser JavaScript)
 - Code that requires a database
 - Code that requires external APIs
@@ -182,7 +184,14 @@ export async function runAutofix(opts: RunOptions) {
             .replace('{{ISSUE_BODY}}', issueData.body)
             .replace('{{CODEBASE}}', codebaseContext);
 
-        const aiResponse = await callAI(prompt, openaiKey, (msg) => log(msg, 'info'));
+        const aiResponseStr = await callAI(
+            prompt,
+            "You are a professional software engineer.",
+            true,
+            openaiKey
+        );
+
+        const aiResponse = aiResponseStr ? JSON.parse(aiResponseStr) : null;
 
         if (!aiResponse || !aiResponse.files || aiResponse.files.length === 0) {
             throw new Error("AI returned no files to change.");
@@ -202,20 +211,9 @@ export async function runAutofix(opts: RunOptions) {
             log(`Updated ${file.path}`, 'info');
         }
 
-        // 7. Run Tests (Best Effort)
-        // Check if package.json exists
+        // 7. Run Tests (Best Effort) - DISABLED as per user request to maintain speed
         if (fs.existsSync(path.join(workspaceDir, 'package.json'))) {
-            log('🧪 Detected Node.js project. Installing dependencies...', 'info');
-            try {
-                // Try lightweight install first
-                runCmd('npm install --ignore-scripts --no-audit --no-fund', workspaceDir);
-
-                log('🧪 Running tests...', 'info');
-                runCmd('npm test', workspaceDir);
-                log('✅ Tests passed!', 'success');
-            } catch (e: any) {
-                log('⚠️ Tests failed or dependencies failed to install. Proceeding anyway (MVP mode).', 'warning');
-            }
+            log('🧪 Detected Node.js project. Skipping automatic test phase to maintain peak performance.', 'info');
         }
 
         // 8. Commit & Push
@@ -340,51 +338,4 @@ function readCodebase(dir: string, fileList: { path: string, content: string }[]
         }
     }
     return fileList;
-}
-
-async function callAI(prompt: string, apiKey: string, onLog?: (msg: string) => void) {
-    const finalKey = apiKey || process.env.API_KEY;
-    if (!finalKey) throw new Error("No API Key provided (client or server API_KEY).");
-
-    const isOpenRouter = finalKey.startsWith('sk-or-');
-    const isCerebras = finalKey.startsWith('csk-');
-    const isTogether = finalKey.startsWith('together_');
-    const isGroq = finalKey.startsWith('gsk_');
-    const isOllama = finalKey.startsWith('ollama:');
-
-    let baseURL = undefined;
-    if (isOpenRouter) baseURL = 'https://openrouter.ai/api/v1';
-    else if (isCerebras) baseURL = 'https://api.cerebras.ai/v1';
-    else if (isTogether) baseURL = 'https://api.together.xyz/v1';
-    else if (isGroq) baseURL = 'https://api.groq.com/openai/v1';
-    else if (isOllama) baseURL = 'http://localhost:11434/v1';
-
-    const openai = new OpenAI({
-        apiKey: isOllama ? 'ollama' : finalKey,
-        baseURL
-    });
-
-    let modelName = 'gpt-4o';
-    if (isOpenRouter) modelName = 'google/gemini-2.0-flash-exp:free';
-    else if (isCerebras) modelName = 'llama3.1-8b';
-    else if (isTogether) modelName = 'meta-llama/Meta-Llama-3.1-70B-Instruct-Turbo';
-    else if (isGroq) modelName = 'llama3-70b-8192';
-    else if (isOllama) modelName = finalKey.split(':')[1] || 'llama3';
-
-    if (onLog) onLog(`Sending request to ${baseURL || 'OpenAI'} with model ${modelName}...`);
-    const startTime = Date.now();
-
-    const completion = await openai.chat.completions.create({
-        messages: [{ role: 'user', content: prompt }],
-        model: modelName,
-        response_format: { type: "json_object" },
-        max_tokens: 4000,
-        temperature: 0.2,
-    });
-
-    if (onLog) onLog(`AI response received in ${Date.now() - startTime}ms.`);
-
-    const content = completion.choices[0].message.content;
-    if (!content) return null;
-    return JSON.parse(content);
 }

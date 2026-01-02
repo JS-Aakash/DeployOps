@@ -34,3 +34,17 @@ export async function PATCH(
         return NextResponse.json({ error: e.message }, { status: 500 });
     }
 }
+
+export async function DELETE(
+    req: NextRequest,
+    { params }: { params: Promise<{ id: string, itemId: string }> }
+) {
+    const { itemId } = await params;
+    await dbConnect();
+    try {
+        await AffinityItem.findByIdAndDelete(itemId);
+        return new NextResponse(null, { status: 204 });
+    } catch (e: any) {
+        return NextResponse.json({ error: e.message }, { status: 500 });
+    }
+}

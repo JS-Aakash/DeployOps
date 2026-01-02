@@ -15,17 +15,19 @@ import {
     Github,
     LogOut,
     User as UserIcon,
-    Bell
+    Bell,
+    Play
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const menuItems = [
     { icon: LayoutDashboard, label: "Dashboard", href: "/" },
     { icon: Files, label: "Projects", href: "/projects" },
+    { icon: Play, label: "Code Editor", href: "/editor" },
     { icon: Sparkles, label: "AI Fixer", href: "/ai-fix" },
     { icon: CheckSquare, label: "Tasks", href: "/tasks" },
-    { icon: Activity, label: "Monitoring", href: "/monitoring" },
     { icon: Bell, label: "Notifications", href: "/notifications" },
+    { icon: Activity, label: "Monitoring", href: "/monitoring" },
     { icon: ShieldCheck, label: "Admin", href: "/admin" },
 ];
 

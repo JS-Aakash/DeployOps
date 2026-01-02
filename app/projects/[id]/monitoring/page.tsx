@@ -11,10 +11,15 @@ import {
     ArrowUpRight,
     RefreshCw,
     ShieldAlert,
-    ExternalLink,
     Terminal,
     Loader2,
-    Globe
+    Globe,
+    Rocket,
+    Server,
+    ExternalLink,
+    Sparkles,
+    Layers,
+    Save as SaveIcon
 } from "lucide-react";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
@@ -34,6 +39,22 @@ export default function MonitoringPage({ params }: { params: Promise<{ id: strin
         netlifyToken: ""
     });
     const [isSaving, setIsSaving] = useState(false);
+    const [setupMode, setSetupMode] = useState<'link' | 'provision'>('provision');
+
+    // Deployment State
+    const [isDeploying, setIsDeploying] = useState(false);
+    const [deployLogs, setDeployLogs] = useState<string>("");
+    const [deployStatus, setDeployStatus] = useState<string>("ready");
+    const [showDeploySetup, setShowDeploySetup] = useState(false);
+    const [isConfiguringDeploy, setIsConfiguringDeploy] = useState(false);
+    const [deployConfig, setDeployConfig] = useState({
+        provider: 'netlify' as 'netlify' | 'render',
+        netlifySiteId: "",
+        netlifyToken: "",
+        renderDeployHook: "",
+        renderServiceName: "",
+        productionUrl: ""
+    });
 
     const fetchData = async () => {
         try {
@@ -61,20 +82,95 @@ export default function MonitoringPage({ params }: { params: Promise<{ id: strin
 
     useEffect(() => {
         fetchData();
-        const interval = setInterval(fetchData, 10000);
+        const interval = setInterval(() => {
+            fetchData();
+            if (isDeploying) {
+                fetchDeployStatus();
+                fetchDeployLogs();
+            }
+        }, 8000);
         return () => clearInterval(interval);
-    }, [id]);
+    }, [id, isDeploying]);
+
+    const fetchDeployStatus = async () => {
+        try {
+            const res = await fetch(`/api/projects/${id}/deploy/status`);
+            const json = await res.json();
+            if (json.status) setDeployStatus(json.status);
+            if (json.status === 'live' || json.status === 'failed') {
+                setIsDeploying(false);
+            }
+        } catch (e) { console.error(e); }
+    };
+
+    const fetchDeployLogs = async () => {
+        try {
+            const res = await fetch(`/api/projects/${id}/deploy/logs`);
+            const json = await res.json();
+            if (json.logs) setDeployLogs(json.logs);
+        } catch (e) { console.error(e); }
+    };
+
+    const handleTriggerDeploy = async () => {
+        setIsDeploying(true);
+        setDeployLogs("Initializing deployment orchestration...\nContacting provider API...");
+        try {
+            const res = await fetch(`/api/projects/${id}/deploy/trigger`, { method: 'POST' });
+            if (!res.ok) throw new Error("Trigger failed");
+            fetchDeployStatus();
+            fetchDeployLogs();
+        } catch (e: any) {
+            alert(e.message);
+            setIsDeploying(false);
+        }
+    };
+
+    const handleSaveDeployConfig = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setIsSaving(true);
+        try {
+            const res = await fetch(`/api/projects/${id}/deploy/setup`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(deployConfig)
+            });
+            if (!res.ok) throw new Error("Failed to save deployment configuration");
+            setShowDeploySetup(false);
+            fetchData();
+        } catch (e: any) {
+            alert(e.message);
+        } finally {
+            setIsSaving(false);
+        }
+    };
 
     const handleSaveConfig = async (e: React.FormEvent) => {
         e.preventDefault();
         setIsSaving(true);
         try {
-            const res = await fetch(`/api/projects/${id}/settings`, {
-                method: "PATCH",
+            const endpoint = setupMode === 'provision'
+                ? `/api/projects/${id}/deploy/provision`
+                : `/api/projects/${id}/settings`;
+
+            const payload = setupMode === 'provision'
+                ? {
+                    provider,
+                    token: provider === 'vercel' ? config.vercelToken : config.netlifyToken,
+                    projectName: config.vercelProjectId || config.netlifySiteId // Re-using existing fields for name in provision mode
+                }
+                : config;
+
+            const res = await fetch(endpoint, {
+                method: setupMode === 'provision' ? "POST" : "PATCH",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(config)
+                body: JSON.stringify(payload)
             });
-            if (!res.ok) throw new Error("Failed to save configuration");
+
+            if (!res.ok) {
+                const errData = await res.json();
+                throw new Error(errData.error || "Failed to save configuration");
+            }
+
             setIsConfiguring(false);
             fetchData();
         } catch (e: any) {
@@ -161,23 +257,69 @@ export default function MonitoringPage({ params }: { params: Promise<{ id: strin
                         </button>
                     </div>
 
-                    <h2 className="text-3xl font-black text-white mb-2">Setup {provider === 'vercel' ? 'Vercel Edge' : 'Netlify Core'}</h2>
-                    <p className="text-gray-500 mb-10 text-sm font-medium">Provision live health signals for the DeployOps layer.</p>
+                    <div className="flex p-1 bg-blue-500/5 border border-blue-500/10 rounded-2xl mb-8">
+                        <button
+                            type="button"
+                            onClick={() => setSetupMode('provision')}
+                            className={cn(
+                                "flex-1 py-2 rounded-xl text-xs font-black uppercase tracking-widest transition-all gap-2 flex items-center justify-center",
+                                setupMode === 'provision' ? "bg-blue-600/20 text-blue-400 border border-blue-500/30" : "text-gray-500"
+                            )}
+                        >
+                            <Sparkles className="w-3 h-3" />
+                            Automatic Provision
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => setSetupMode('link')}
+                            className={cn(
+                                "flex-1 py-2 rounded-xl text-xs font-black uppercase tracking-widest transition-all gap-2 flex items-center justify-center",
+                                setupMode === 'link' ? "bg-white/10 text-white border border-white/20" : "text-gray-500"
+                            )}
+                        >
+                            <Layers className="w-3 h-3" />
+                            Link Existing
+                        </button>
+                    </div>
+
+                    <h2 className="text-3xl font-black text-white mb-2">
+                        {setupMode === 'provision' ? 'Automated Provisioning' : `Setup ${provider === 'vercel' ? 'Vercel Edge' : 'Netlify Core'}`}
+                    </h2>
+                    <p className="text-gray-500 mb-10 text-sm font-medium">
+                        {setupMode === 'provision'
+                            ? `DeployOps will create a new ${provider} project and link your GitHub repo automatically.`
+                            : `Provision live health signals for the DeployOps layer.`
+                        }
+                    </p>
 
                     <form onSubmit={handleSaveConfig} className="space-y-6">
                         {provider === 'vercel' ? (
                             <>
-                                <div className="space-y-2">
-                                    <label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest ml-1">Vercel Project ID</label>
-                                    <input
-                                        required
-                                        type="text"
-                                        placeholder="prj_..."
-                                        value={config.vercelProjectId}
-                                        onChange={(e) => setConfig({ ...config, vercelProjectId: e.target.value })}
-                                        className="w-full px-6 py-4 bg-black/50 border border-gray-800 rounded-2xl focus:outline-none focus:border-blue-500 transition-all text-white font-mono text-sm"
-                                    />
-                                </div>
+                                {setupMode === 'link' && (
+                                    <div className="space-y-2">
+                                        <label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest ml-1">Vercel Project ID</label>
+                                        <input
+                                            required
+                                            type="text"
+                                            placeholder="prj_..."
+                                            value={config.vercelProjectId}
+                                            onChange={(e) => setConfig({ ...config, vercelProjectId: e.target.value })}
+                                            className="w-full px-6 py-4 bg-black/50 border border-gray-800 rounded-2xl focus:outline-none focus:border-blue-500 transition-all text-white font-mono text-sm"
+                                        />
+                                    </div>
+                                )}
+                                {setupMode === 'provision' && (
+                                    <div className="space-y-2">
+                                        <label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest ml-1">Project Display Name</label>
+                                        <input
+                                            type="text"
+                                            placeholder="e.g. my-awesome-app"
+                                            value={config.vercelProjectId}
+                                            onChange={(e) => setConfig({ ...config, vercelProjectId: e.target.value })}
+                                            className="w-full px-6 py-4 bg-black/50 border border-gray-800 rounded-2xl focus:outline-none focus:border-blue-500 transition-all text-white font-mono text-sm"
+                                        />
+                                    </div>
+                                )}
                                 <div className="space-y-2">
                                     <label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest ml-1">Vercel API Token</label>
                                     <input
@@ -192,17 +334,31 @@ export default function MonitoringPage({ params }: { params: Promise<{ id: strin
                             </>
                         ) : (
                             <>
-                                <div className="space-y-2">
-                                    <label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest ml-1">Netlify Site ID</label>
-                                    <input
-                                        required
-                                        type="text"
-                                        placeholder="API ID from Site Settings"
-                                        value={config.netlifySiteId}
-                                        onChange={(e) => setConfig({ ...config, netlifySiteId: e.target.value })}
-                                        className="w-full px-6 py-4 bg-black/50 border border-gray-800 rounded-2xl focus:outline-none focus:border-blue-500 transition-all text-white font-mono text-sm"
-                                    />
-                                </div>
+                                {setupMode === 'link' && (
+                                    <div className="space-y-2">
+                                        <label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest ml-1">Netlify Site ID</label>
+                                        <input
+                                            required
+                                            type="text"
+                                            placeholder="API ID from Site Settings"
+                                            value={config.netlifySiteId}
+                                            onChange={(e) => setConfig({ ...config, netlifySiteId: e.target.value })}
+                                            className="w-full px-6 py-4 bg-black/50 border border-gray-800 rounded-2xl focus:outline-none focus:border-blue-500 transition-all text-white font-mono text-sm"
+                                        />
+                                    </div>
+                                )}
+                                {setupMode === 'provision' && (
+                                    <div className="space-y-2">
+                                        <label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest ml-1">Site Custom Name</label>
+                                        <input
+                                            type="text"
+                                            placeholder="e.g. cloud-dashboard-prod"
+                                            value={config.netlifySiteId}
+                                            onChange={(e) => setConfig({ ...config, netlifySiteId: e.target.value })}
+                                            className="w-full px-6 py-4 bg-black/50 border border-gray-800 rounded-2xl focus:outline-none focus:border-blue-500 transition-all text-white font-mono text-sm"
+                                        />
+                                    </div>
+                                )}
                                 <div className="space-y-2">
                                     <label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest ml-1">Netlify API Token</label>
                                     <input
@@ -230,7 +386,14 @@ export default function MonitoringPage({ params }: { params: Promise<{ id: strin
                                 disabled={isSaving}
                                 className="flex-1 py-4 bg-blue-600 text-white rounded-2xl font-bold hover:bg-blue-500 transition-all shadow-lg shadow-blue-500/20 disabled:opacity-50"
                             >
-                                {isSaving ? <Loader2 className="w-5 h-5 animate-spin mx-auto" /> : "Verify & Connect"}
+                                {isSaving ? (
+                                    <div className="flex items-center gap-2 justify-center">
+                                        <Loader2 className="w-5 h-5 animate-spin" />
+                                        <span>Provisionsing...</span>
+                                    </div>
+                                ) : (
+                                    setupMode === 'provision' ? "Provision & Connect" : "Verify & Connect"
+                                )}
                             </button>
                         </div>
                     </form>
@@ -420,6 +583,212 @@ export default function MonitoringPage({ params }: { params: Promise<{ id: strin
                         </div>
                     </div>
                 </div>
+            </div>
+            {/* Deployment Orchestration Section */}
+            <div className="pt-8 border-t border-gray-800/50">
+                <div className="flex items-center justify-between mb-8">
+                    <div>
+                        <h2 className="text-3xl font-black text-white flex items-center gap-3">
+                            <Rocket className="w-8 h-8 text-indigo-500" />
+                            Deployment Orchestration
+                        </h2>
+                        <p className="text-gray-500 mt-1 font-medium italic">Triggered builds & real-time delivery logs.</p>
+                    </div>
+                    {data?.config?.deployProvider && !showDeploySetup && (
+                        <button
+                            onClick={() => {
+                                setShowDeploySetup(true);
+                                setDeployConfig({
+                                    provider: data.config.deployProvider,
+                                    netlifySiteId: data.config.netlifySiteId || "",
+                                    netlifyToken: data.config.netlifyToken || "",
+                                    renderDeployHook: data.config.renderDeployHook || "",
+                                    renderServiceName: data.config.renderServiceName || "",
+                                    productionUrl: data.config.productionUrl || ""
+                                });
+                            }}
+                            className="text-[10px] font-black uppercase text-gray-500 hover:text-white transition-colors flex items-center gap-2"
+                        >
+                            <Server className="w-3 h-3" />
+                            Change Provider
+                        </button>
+                    )}
+                </div>
+
+                {!data?.config?.deployProvider || showDeploySetup ? (
+                    <div className="bg-gray-900/30 border border-dashed border-gray-800 rounded-[3rem] p-12 text-center animate-in zoom-in-95 duration-500">
+                        <div className="max-w-md mx-auto space-y-8">
+                            <div className="p-1 bg-black/40 rounded-2xl flex">
+                                <button
+                                    onClick={() => setDeployConfig({ ...deployConfig, provider: 'netlify' })}
+                                    className={cn("flex-1 py-3 rounded-xl font-bold transition-all", deployConfig.provider === 'netlify' ? "bg-white text-black" : "text-gray-500 hover:text-white")}
+                                >
+                                    Netlify
+                                </button>
+                                <button
+                                    onClick={() => setDeployConfig({ ...deployConfig, provider: 'render' })}
+                                    className={cn("flex-1 py-3 rounded-xl font-bold transition-all", deployConfig.provider === 'render' ? "bg-blue-600 text-white" : "text-gray-500 hover:text-white")}
+                                >
+                                    Render
+                                </button>
+                            </div>
+
+                            <form onSubmit={handleSaveDeployConfig} className="space-y-6 text-left">
+                                {deployConfig.provider === 'netlify' ? (
+                                    <>
+                                        <div className="space-y-2">
+                                            <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-1">Netlify Site ID</label>
+                                            <input
+                                                required
+                                                value={deployConfig.netlifySiteId}
+                                                onChange={e => setDeployConfig({ ...deployConfig, netlifySiteId: e.target.value })}
+                                                className="w-full px-6 py-4 bg-black/50 border border-gray-800 rounded-2xl text-white font-mono text-sm focus:border-blue-500 outline-none"
+                                                placeholder="e.g. 5a2b3c4d..."
+                                            />
+                                        </div>
+                                        <div className="space-y-2">
+                                            <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-1">Personal Access Token</label>
+                                            <input
+                                                required
+                                                type="password"
+                                                value={deployConfig.netlifyToken}
+                                                onChange={e => setDeployConfig({ ...deployConfig, netlifyToken: e.target.value })}
+                                                className="w-full px-6 py-4 bg-black/50 border border-gray-800 rounded-2xl text-white font-mono text-sm focus:border-blue-500 outline-none"
+                                                placeholder="nfp_..."
+                                            />
+                                        </div>
+                                    </>
+                                ) : (
+                                    <>
+                                        <div className="space-y-2">
+                                            <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-1">Deploy Hook URL</label>
+                                            <input
+                                                required
+                                                value={deployConfig.renderDeployHook}
+                                                onChange={e => setDeployConfig({ ...deployConfig, renderDeployHook: e.target.value })}
+                                                className="w-full px-6 py-4 bg-black/50 border border-gray-800 rounded-2xl text-white font-mono text-sm focus:border-blue-500 outline-none"
+                                                placeholder="https://api.render.com/deploy/..."
+                                            />
+                                        </div>
+                                        <div className="space-y-2">
+                                            <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-1">Service Name (Optional)</label>
+                                            <input
+                                                value={deployConfig.renderServiceName}
+                                                onChange={e => setDeployConfig({ ...deployConfig, renderServiceName: e.target.value })}
+                                                className="w-full px-6 py-4 bg-black/50 border border-gray-800 rounded-2xl text-white font-mono text-sm focus:border-blue-500 outline-none"
+                                                placeholder="e.g. frontend-prod"
+                                            />
+                                        </div>
+                                    </>
+                                )}
+
+                                <div className="space-y-2">
+                                    <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-1">Production URL (Optional)</label>
+                                    <input
+                                        type="url"
+                                        value={deployConfig.productionUrl}
+                                        onChange={e => setDeployConfig({ ...deployConfig, productionUrl: e.target.value })}
+                                        className="w-full px-6 py-4 bg-black/50 border border-gray-800 rounded-2xl text-white font-mono text-sm focus:border-blue-500 outline-none"
+                                        placeholder="https://your-site.com"
+                                    />
+                                </div>
+
+                                <div className="flex gap-4">
+                                    {data?.config?.deployProvider && <button type="button" onClick={() => setShowDeploySetup(false)} className="flex-1 py-4 font-bold text-gray-500">Cancel</button>}
+                                    <button type="submit" disabled={isSaving} className="flex-1 py-4 bg-indigo-600 text-white rounded-2xl font-black uppercase tracking-widest text-xs hover:bg-indigo-500 transition-all shadow-xl shadow-indigo-500/20 disabled:opacity-50">
+                                        {isSaving ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : "Save Configuration"}
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                ) : (
+                    <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
+                        <div className="xl:col-span-1 space-y-6">
+                            <div className="p-8 rounded-[2.5rem] bg-gray-900/50 border border-gray-800 relative overflow-hidden group">
+                                <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+                                    {data?.config?.deployProvider === 'netlify' ? <Globe className="w-20 h-20" /> : <Server className="w-20 h-20" />}
+                                </div>
+                                <div className="space-y-6 relative z-10">
+                                    <div className="flex items-center justify-between">
+                                        <div className="px-3 py-1 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 text-[10px] font-black uppercase tracking-widest">
+                                            {data?.config?.deployProvider}
+                                        </div>
+                                        <div className={cn(
+                                            "flex items-center gap-2 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest",
+                                            deployStatus === 'live' ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20" :
+                                                deployStatus === 'deploying' ? "bg-blue-500/10 text-blue-400 border border-blue-500/20 animate-pulse" :
+                                                    "bg-red-500/10 text-red-400 border border-red-500/20"
+                                        )}>
+                                            <div className={cn("w-1.5 h-1.5 rounded-full", deployStatus === 'live' ? "bg-emerald-500" : deployStatus === 'deploying' ? "bg-blue-500" : "bg-red-500")} />
+                                            {deployStatus}
+                                        </div>
+                                    </div>
+
+                                    <div>
+                                        <p className="text-gray-500 text-[10px] font-black uppercase tracking-widest mb-1">Authenticated Site</p>
+                                        <div className="flex items-center gap-2">
+                                            <p className="text-xl font-bold text-white font-mono truncate">
+                                                {data?.config?.renderDeployHook ? "Render Service" : data?.config?.netlifySiteId}
+                                            </p>
+                                            {data?.config?.productionUrl && (
+                                                <Link href={data.config.productionUrl} target="_blank" className="text-blue-500 hover:text-blue-400">
+                                                    <ExternalLink className="w-4 h-4" />
+                                                </Link>
+                                            )}
+                                        </div>
+                                    </div>
+
+                                    <button
+                                        onClick={handleTriggerDeploy}
+                                        disabled={isDeploying || deployStatus === 'deploying'}
+                                        className="w-full py-5 bg-gradient-to-r from-indigo-600 to-blue-600 text-white rounded-[1.5rem] font-black uppercase tracking-[0.2em] text-xs hover:scale-[1.02] active:scale-[0.98] transition-all shadow-xl shadow-blue-500/20 disabled:opacity-50 disabled:scale-100 flex items-center justify-center gap-3"
+                                    >
+                                        {isDeploying || deployStatus === 'deploying' ? (
+                                            <>
+                                                <Loader2 className="w-5 h-5 animate-spin" />
+                                                Deploying...
+                                            </>
+                                        ) : (
+                                            <>
+                                                <Rocket className="w-5 h-5" />
+                                                Deploy Now
+                                            </>
+                                        )}
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="xl:col-span-2">
+                            <div className="bg-black border border-gray-800 rounded-[2.5rem] p-1 overflow-hidden h-full flex flex-col shadow-2xl">
+                                <div className="px-6 py-4 border-b border-gray-800 flex items-center justify-between">
+                                    <div className="flex items-center gap-2">
+                                        <Terminal className="w-4 h-4 text-gray-500" />
+                                        <span className="text-[10px] font-black uppercase tracking-widest text-gray-500">Provider Build Logs</span>
+                                    </div>
+                                    <div className="flex gap-1">
+                                        <div className="w-2.5 h-2.5 rounded-full bg-red-500/20" />
+                                        <div className="w-2.5 h-2.5 rounded-full bg-amber-500/20" />
+                                        <div className="w-2.5 h-2.5 rounded-full bg-emerald-500/20" />
+                                    </div>
+                                </div>
+                                <div className="flex-1 p-6 font-mono text-[11px] text-gray-400 overflow-y-auto max-h-[350px] custom-scrollbar bg-black/50">
+                                    {deployLogs ? (
+                                        <pre className="whitespace-pre-wrap leading-relaxed">
+                                            {deployLogs}
+                                        </pre>
+                                    ) : (
+                                        <div className="h-full flex flex-col items-center justify-center gap-3 opacity-20">
+                                            <Terminal className="w-8 h-8" />
+                                            <p className="font-bold uppercase tracking-tighter">Ready for orchestration</p>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                )}
             </div>
         </div>
     );

@@ -25,7 +25,8 @@ import {
     Clock,
     Zap,
     Target,
-    ShieldCheck
+    ShieldCheck,
+    Play
 } from "lucide-react";
 import Link from "next/link";
 
@@ -138,7 +139,7 @@ export default function ProjectDashboardPage({ params }: { params: Promise<{ id:
             color: "text-purple-400",
             bg: "bg-purple-900/10 border-purple-500/20",
             tools: [
-                { name: "Affinity Figure", icon: Layout, href: `/projects/${id}/affinity` },
+                { name: "Ideation Board", icon: Zap, href: `/projects/${id}/affinity` },
                 { name: "Requirements", icon: FileText, href: `/projects/${id}/requirements` },
                 { name: "Roadmap", icon: Map, href: `/projects/${id}/roadmap` },
                 { name: "Documentation", icon: Book, href: `/projects/${id}/docs` },

@@ -15,7 +15,8 @@ import {
     Info,
     ArrowLeft,
     Loader2,
-    Sparkles
+    Sparkles,
+    RefreshCw
 } from "lucide-react";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
@@ -48,6 +49,7 @@ export default function ProjectDocsPage({ params }: { params: Promise<{ id: stri
     const [isLoading, setIsLoading] = useState(true);
     const [isEditing, setIsEditing] = useState(false);
     const [isCreating, setIsCreating] = useState(false);
+    const [isSyncing, setIsSyncing] = useState(false);
 
     // Form State
     const [title, setTitle] = useState("");
@@ -132,13 +134,37 @@ export default function ProjectDocsPage({ params }: { params: Promise<{ id: stri
                     </div>
                 </div>
                 {!isEditing && (
-                    <button
-                        onClick={startCreate}
-                        className="flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-500 transition-all shadow-lg shadow-blue-500/20"
-                    >
-                        <Plus className="w-5 h-5" />
-                        Create Document
-                    </button>
+                    <div className="flex gap-4">
+                        <button
+                            onClick={async () => {
+                                setIsSyncing(true);
+                                try {
+                                    const res = await fetch(`/api/projects/${id}/docs/sync`, { method: 'POST' });
+                                    if (res.ok) {
+                                        fetchDocs();
+                                        alert("Documentation synced with codebase!");
+                                    } else {
+                                        const err = await res.json();
+                                        alert(`Sync failed: ${err.error}`);
+                                    }
+                                } finally {
+                                    setIsSyncing(false);
+                                }
+                            }}
+                            disabled={isSyncing}
+                            className="flex items-center gap-2 px-6 py-3 bg-gray-900 border border-gray-800 text-gray-300 rounded-xl font-bold hover:bg-gray-800 hover:text-white transition-all disabled:opacity-50"
+                        >
+                            {isSyncing ? <Loader2 className="w-5 h-5 animate-spin" /> : <RefreshCw className="w-5 h-5 text-blue-500" />}
+                            Auto-Sync Specs
+                        </button>
+                        <button
+                            onClick={startCreate}
+                            className="flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-500 transition-all shadow-lg shadow-blue-500/20"
+                        >
+                            <Plus className="w-5 h-5" />
+                            Create Document
+                        </button>
+                    </div>
                 )}
             </div>
 

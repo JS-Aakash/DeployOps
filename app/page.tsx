@@ -350,7 +350,7 @@ export default function Dashboard() {
               ))}
               {(data?.stats.members || 0) > 5 && (
                 <div className="w-10 h-10 rounded-full border-2 border-black bg-purple-600 flex items-center justify-center text-xs font-bold text-white ring-2 ring-gray-900">
-                  +{data.stats.members - 5}
+                  +{(data?.stats.members || 0) - 5}
                 </div>
               )}
             </div>

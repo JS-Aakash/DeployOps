@@ -57,7 +57,11 @@ export async function GET(
             provider,
             config: {
                 vercelProjectId: project.vercelProjectId,
-                netlifySiteId: project.netlifySiteId
+                netlifySiteId: project.netlifySiteId,
+                renderDeployHook: project.renderDeployHook,
+                renderServiceName: project.renderServiceName,
+                deployProvider: project.deployProvider,
+                deployStatus: project.deployStatus
             }
         });
     } catch (error: any) {
