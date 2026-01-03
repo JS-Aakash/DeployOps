@@ -54,6 +54,8 @@ interface Project {
     }>;
     hasVercel: boolean;
     hasNetlify: boolean;
+    deployProvider?: string;
+    deployStatus?: string;
     createdAt: string;
 }
 
@@ -319,18 +321,35 @@ export default function AdminPage() {
                                         )}
                                     </div>
                                     <div className="flex gap-2">
+                                        {project.deployProvider === 'render' && (
+                                            <div className="w-6 h-6 rounded bg-indigo-500/20 border border-indigo-500/30 flex items-center justify-center" title="Render">
+                                                <span className="text-[8px] font-bold text-indigo-400">R</span>
+                                            </div>
+                                        )}
                                         {project.hasVercel && (
                                             <div className="w-6 h-6 rounded bg-black border border-gray-700 flex items-center justify-center" title="Vercel">
                                                 <span className="text-[8px] font-bold text-white">V</span>
                                             </div>
                                         )}
-                                        {project.hasNetlify && (
+                                        {(project.hasNetlify || project.deployProvider === 'netlify') && (
                                             <div className="w-6 h-6 rounded bg-teal-500/20 border border-teal-500/30 flex items-center justify-center" title="Netlify">
                                                 <span className="text-[8px] font-bold text-teal-400">N</span>
                                             </div>
                                         )}
                                     </div>
                                 </div>
+
+                                {project.deployStatus && project.deployStatus !== 'not_configured' && (
+                                    <div className={cn(
+                                        "inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-tighter border",
+                                        project.deployStatus === 'live' ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20" :
+                                            project.deployStatus === 'deploying' ? "bg-blue-500/10 text-blue-400 border-blue-500/20 animate-pulse" :
+                                                "bg-red-500/10 text-red-400 border-red-500/20"
+                                    )}>
+                                        <div className={cn("w-1 h-1 rounded-full", project.deployStatus === 'live' ? "bg-emerald-500" : project.deployStatus === 'deploying' ? "bg-blue-500" : "bg-red-500")} />
+                                        {project.deployStatus}
+                                    </div>
+                                )}
 
                                 <div className="flex items-center gap-2 text-xs text-gray-500">
                                     <Github className="w-3 h-3" />
@@ -452,6 +471,20 @@ export default function AdminPage() {
                                     </div>
                                 </div>
                                 <span className="text-xs text-green-400">Healthy</span>
+                            </div>
+                            <div className="p-5 rounded-2xl border border-gray-800 bg-black/40 flex items-center justify-between">
+                                <div className="flex items-center gap-3">
+                                    <Shield className="w-5 h-5 text-indigo-500" />
+                                    <div>
+                                        <p className="text-sm font-bold text-white">Production</p>
+                                        <p className="text-[10px] text-gray-500">
+                                            {projects.filter(p => p.deployProvider && p.deployProvider !== 'none').length} Environments Active
+                                        </p>
+                                    </div>
+                                </div>
+                                <span className={cn("text-xs", projects.every(p => p.deployStatus !== 'failed') ? "text-green-400" : "text-red-400")}>
+                                    {projects.every(p => p.deployStatus !== 'failed') ? "Stable" : "Attention Needed"}
+                                </span>
                             </div>
                         </div>
                     </div>

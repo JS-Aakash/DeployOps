@@ -112,6 +112,32 @@ export async function authorize(projectId: string, allowedRoles: string[]) {
     return true;
 }
 
+export async function isGlobalAdmin() {
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.email) return false;
+
+    const email = session.user.email.toLowerCase();
+    await dbConnect();
+
+    let user = await User.findOne({ email });
+    if (!user && (session.user as any).id) {
+        user = await User.findById((session.user as any).id);
+    }
+    if (!user) return false;
+
+    // Check if user is admin/lead on ANY project
+    const memberships = await ProjectMember.find({ userId: user._id });
+    if (memberships.some(m => m.role === 'admin' || m.role === 'lead')) return true;
+
+    // Reconciliation Check: check if they are owner of any project
+    if (user.githubUsername) {
+        const ownedProjects = await Project.find({ owner: user.githubUsername });
+        if (ownedProjects.length > 0) return true;
+    }
+
+    return false;
+}
+
 export function authError() {
     return NextResponse.json({ error: "Unauthorized. You do not have permission to perform this action." }, { status: 403 });
 }

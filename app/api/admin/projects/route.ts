@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import dbConnect from '@/lib/mongodb';
 import { Project, ProjectMember, User } from '@/models';
+import { isGlobalAdmin } from '@/lib/auth-utils';
 
 export async function GET() {
     const session = await getServerSession(authOptions);
@@ -10,23 +11,12 @@ export async function GET() {
         return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    if (!(await isGlobalAdmin())) {
+        return NextResponse.json({ error: "Admin access required" }, { status: 403 });
+    }
+
     await dbConnect();
     try {
-        const currentUser = await User.findOne({ email: session.user.email.toLowerCase() });
-        if (!currentUser) {
-            return NextResponse.json({ error: "User not found" }, { status: 404 });
-        }
-
-        // Check if user is admin
-        const adminMembership = await ProjectMember.findOne({
-            userId: currentUser._id,
-            role: 'admin'
-        });
-
-        if (!adminMembership) {
-            return NextResponse.json({ error: "Admin access required" }, { status: 403 });
-        }
-
         // Get all projects
         const projects = await Project.find({}).lean();
 
@@ -36,6 +26,9 @@ export async function GET() {
                 .populate('userId', 'name email image')
                 .lean();
 
+            // Filter out members whose user records no longer exist
+            const validMembers = members.filter((m: any) => m.userId);
+
             return {
                 _id: project._id,
                 name: project.name,
@@ -43,8 +36,8 @@ export async function GET() {
                 repoUrl: project.repoUrl,
                 owner: project.owner,
                 repo: project.repo,
-                memberCount,
-                members: members.map(m => ({
+                memberCount: validMembers.length,
+                members: validMembers.map((m: any) => ({
                     userId: m.userId._id,
                     name: m.userId.name,
                     email: m.userId.email,
@@ -53,6 +46,8 @@ export async function GET() {
                 })),
                 hasVercel: !!(project.vercelProjectId && project.vercelToken),
                 hasNetlify: !!(project.netlifySiteId && project.netlifyToken),
+                deployProvider: project.deployProvider,
+                deployStatus: project.deployStatus,
                 createdAt: project.createdAt
             };
         }));

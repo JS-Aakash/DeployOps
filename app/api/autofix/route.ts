@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { runAutofix } from '@/lib/autofix-service';
+import { getServerSession } from "next-auth/next";
+import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 
 export const maxDuration = 300; // 5 minutes
 export const dynamic = 'force-dynamic';
@@ -7,10 +9,11 @@ export const runtime = 'nodejs';
 
 export async function POST(req: NextRequest) {
     const encoder = new TextEncoder();
+    const session = await getServerSession(authOptions);
 
     try {
         const body = await req.json();
-        const { issueUrl, repoUrl, githubToken, openaiKey } = body;
+        const { issueUrl, repoUrl, githubToken, openaiKey, projectId } = body;
 
         const stream = new ReadableStream({
             async start(controller) {
@@ -23,8 +26,10 @@ export async function POST(req: NextRequest) {
                     await runAutofix({
                         issueUrl,
                         repoUrl,
-                        githubToken: githubToken || process.env.GITHUB_TOKEN || '',
-                        openaiKey: openaiKey || process.env.API_KEY || '',
+                        githubToken: githubToken || (session as any)?.accessToken || process.env.GITHUB_TOKEN || '',
+                        openaiKey: openaiKey || (session as any)?.apiKey || process.env.API_KEY || '',
+                        userId: (session?.user as any)?.id,
+                        projectId,
                         onLog: (message, level = 'info') => {
                             sendLog({ message, level, timestamp: new Date().toISOString() });
                         }

@@ -30,6 +30,15 @@ interface AffinityGroup {
     order: number;
 }
 
+const STICKY_COLORS = [
+    { bg: 'bg-yellow-500/10', border: 'border-yellow-500/20', text: 'text-yellow-100', hover: 'hover:shadow-yellow-500/5', accent: 'bg-yellow-500' },
+    { bg: 'bg-green-500/10', border: 'border-green-500/20', text: 'text-green-100', hover: 'hover:shadow-green-500/5', accent: 'bg-green-500' },
+    { bg: 'bg-pink-500/10', border: 'border-pink-500/20', text: 'text-pink-100', hover: 'hover:shadow-pink-500/5', accent: 'bg-pink-500' },
+    { bg: 'bg-blue-500/10', border: 'border-blue-500/20', text: 'text-blue-100', hover: 'hover:shadow-blue-500/5', accent: 'bg-blue-500' },
+    { bg: 'bg-purple-500/10', border: 'border-purple-500/20', text: 'text-purple-100', hover: 'hover:shadow-purple-500/5', accent: 'bg-purple-500' },
+    { bg: 'bg-orange-500/10', border: 'border-orange-500/20', text: 'text-orange-100', hover: 'hover:shadow-orange-500/5', accent: 'bg-orange-500' },
+];
+
 export default function AffinityBoardPage({ params }: { params: Promise<{ id: string }> }) {
     const { id } = use(params);
     const [groups, setGroups] = useState<AffinityGroup[]>([]);
@@ -216,8 +225,8 @@ export default function AffinityBoardPage({ params }: { params: Promise<{ id: st
                 <DragDropContext onDragEnd={onDragEnd}>
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8 items-start">
                         {/* UNGROUPED Column */}
-                        <div className="shrink-0 bg-gray-900/40 border border-dashed border-gray-700 rounded-3xl p-6 flex flex-col gap-6 h-fit max-sm:order-first">
-                            <div className="flex items-center justify-between">
+                        <div className="shrink-0 bg-gray-900/40 border border-dashed border-gray-700 rounded-3xl p-6 flex flex-col gap-6 h-[400px] max-sm:order-first">
+                            <div className="flex items-center justify-between shrink-0">
                                 <h3 className="text-sm font-black uppercase text-gray-500 tracking-widest flex items-center gap-2">
                                     <Lightbulb className="w-4 h-4 text-yellow-500" />
                                     Ungrouped Ideas
@@ -248,7 +257,7 @@ export default function AffinityBoardPage({ params }: { params: Promise<{ id: st
 
                             <Droppable droppableId="ungrouped">
                                 {(provided) => (
-                                    <div {...provided.droppableProps} ref={provided.innerRef} className="flex flex-col gap-4 min-h-[100px]">
+                                    <div {...provided.droppableProps} ref={provided.innerRef} className="flex flex-col gap-4 flex-1 overflow-y-auto custom-scrollbar pr-2 min-h-0">
                                         {items.filter(i => !i.groupId).map((item, index) => (
                                             <Draggable key={item._id} draggableId={item._id} index={index}>
                                                 {(provided) => (
@@ -276,57 +285,60 @@ export default function AffinityBoardPage({ params }: { params: Promise<{ id: st
                         </div>
 
                         {/* Group Columns */}
-                        {groups.map((group) => (
-                            <div key={group._id} className="bg-gray-900 border border-gray-800 rounded-3xl p-6 flex flex-col gap-6 shadow-2xl overflow-hidden relative group/col h-fit">
-                                <div className="absolute top-0 left-0 w-full h-1 bg-blue-500/40 shadow-[0_0_15px_rgba(59,130,246,0.3)]" />
+                        {groups.map((group, index) => {
+                            const color = STICKY_COLORS[index % STICKY_COLORS.length];
+                            return (
+                                <div key={group._id} className="bg-gray-900 border border-gray-800 rounded-3xl p-6 flex flex-col gap-6 shadow-2xl overflow-hidden relative group/col h-[400px]">
+                                    <div className={`absolute top-0 left-0 w-full h-1 ${color.accent}/40 shadow-[0_0_15px_rgba(59,130,246,0.3)]`} />
 
-                                <div className="flex items-center justify-between">
-                                    <h3 className="text-sm font-black uppercase text-white tracking-widest flex items-center gap-2">
-                                        <div className="w-2 h-2 rounded-full bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.5)]" />
-                                        {group.title}
-                                    </h3>
-                                    <div className="flex items-center gap-3">
-                                        <span className="text-[10px] font-bold text-gray-600 bg-gray-800 px-2.5 py-1 rounded-full border border-gray-700">
-                                            {items.filter(i => i.groupId === group._id).length}
-                                        </span>
-                                        <button
-                                            onClick={() => handleDeleteGroup(group._id)}
-                                            className="p-1 rounded-md text-gray-600 hover:text-red-500 hover:bg-red-500/10 transition-all opacity-0 group-hover/col:opacity-100"
-                                        >
-                                            <Trash2 className="w-3.5 h-3.5" />
-                                        </button>
-                                    </div>
-                                </div>
-
-                                <Droppable droppableId={group._id}>
-                                    {(provided) => (
-                                        <div {...provided.droppableProps} ref={provided.innerRef} className="flex flex-col gap-4 min-h-[100px]">
-                                            {items.filter(i => i.groupId === group._id).map((item, index) => (
-                                                <Draggable key={item._id} draggableId={item._id} index={index}>
-                                                    {(provided) => (
-                                                        <div
-                                                            ref={provided.innerRef}
-                                                            {...provided.draggableProps}
-                                                            {...provided.dragHandleProps}
-                                                            className="p-6 bg-gray-800/80 border border-gray-700/50 text-gray-200 rounded-2xl shadow-lg hover:border-blue-500/30 hover:bg-gray-800 transition-all group relative"
-                                                        >
-                                                            <button
-                                                                onClick={() => handleDeleteItem(item._id)}
-                                                                className="absolute top-2 right-2 p-1 rounded-md bg-black/40 text-gray-500 opacity-0 group-hover:opacity-100 hover:text-red-400 transition-all"
-                                                            >
-                                                                <Trash2 className="w-3.5 h-3.5" />
-                                                            </button>
-                                                            <p className="text-sm font-medium leading-relaxed">{item.content}</p>
-                                                        </div>
-                                                    )}
-                                                </Draggable>
-                                            ))}
-                                            {provided.placeholder}
+                                    <div className="flex items-center justify-between shrink-0">
+                                        <h3 className="text-sm font-black uppercase text-white tracking-widest flex items-center gap-2">
+                                            <div className={`w-2 h-2 rounded-full ${color.accent} shadow-[0_0_8px_rgba(59,130,246,0.5)]`} />
+                                            {group.title}
+                                        </h3>
+                                        <div className="flex items-center gap-3">
+                                            <span className="text-[10px] font-bold text-gray-600 bg-gray-800 px-2.5 py-1 rounded-full border border-gray-700">
+                                                {items.filter(i => i.groupId === group._id).length}
+                                            </span>
+                                            <button
+                                                onClick={() => handleDeleteGroup(group._id)}
+                                                className="p-1 rounded-md text-gray-600 hover:text-red-500 hover:bg-red-500/10 transition-all opacity-0 group-hover/col:opacity-100"
+                                            >
+                                                <Trash2 className="w-3.5 h-3.5" />
+                                            </button>
                                         </div>
-                                    )}
-                                </Droppable>
-                            </div>
-                        ))}
+                                    </div>
+
+                                    <Droppable droppableId={group._id}>
+                                        {(provided) => (
+                                            <div {...provided.droppableProps} ref={provided.innerRef} className="flex flex-col gap-4 flex-1 overflow-y-auto custom-scrollbar pr-2 min-h-0">
+                                                {items.filter(i => i.groupId === group._id).map((item, index) => (
+                                                    <Draggable key={item._id} draggableId={item._id} index={index}>
+                                                        {(provided) => (
+                                                            <div
+                                                                ref={provided.innerRef}
+                                                                {...provided.draggableProps}
+                                                                {...provided.dragHandleProps}
+                                                                className={`p-6 ${color.bg} border ${color.border} ${color.text} rounded-2xl shadow-lg ${color.hover} transition-all group relative`}
+                                                            >
+                                                                <button
+                                                                    onClick={() => handleDeleteItem(item._id)}
+                                                                    className="absolute top-2 right-2 p-1 rounded-md bg-black/40 text-gray-500 opacity-0 group-hover:opacity-100 hover:text-red-400 transition-all"
+                                                                >
+                                                                    <Trash2 className="w-3.5 h-3.5" />
+                                                                </button>
+                                                                <p className="text-sm font-medium leading-relaxed">{item.content}</p>
+                                                            </div>
+                                                        )}
+                                                    </Draggable>
+                                                ))}
+                                                {provided.placeholder}
+                                            </div>
+                                        )}
+                                    </Droppable>
+                                </div>
+                            );
+                        })}
 
                         {/* Add Group Column */}
                         <div className="shrink-0 h-40 border border-dashed border-gray-800 rounded-3xl p-6 flex items-center justify-center hover:bg-gray-900/40 transition-all hover:border-gray-600">

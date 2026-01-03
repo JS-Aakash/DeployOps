@@ -5,6 +5,7 @@ import { execSync } from 'child_process';
 import OpenAI from 'openai';
 import { Octokit } from '@octokit/rest';
 import { callAI } from './ai-service';
+import { Notification, ProjectMember, Issue, Project } from '@/models';
 
 // Prompts
 const FIX_PROMPT_TEMPLATE = `You are an expert software engineer fixing a GitHub issue.
@@ -23,8 +24,10 @@ Analyze the issue and generate a fix. You MUST respond with valid JSON only.
 
 ## RULES
 
-1. Output COMPLETE file contents (not diffs)
-2. Only include files that need changes
+
+1. Output COMPLETE file contents (DO NOT use comments like // ... existing code ...)
+2. You MUST preserve all existing code that is not related to the fix.
+3. Only include files that need changes
 3. Generate tests ONLY if they can be run with simple Node.js assert
 4. Use Node.js assert for tests (no jest/mocha unless project uses them)
 5. Match existing code style
@@ -102,6 +105,8 @@ interface RunOptions {
     repoUrl: string;
     githubToken: string;
     openaiKey: string;
+    userId?: string;
+    projectId?: string;
     onLog: (msg: string, level?: 'info' | 'error' | 'success' | 'warning') => void;
 }
 
@@ -154,17 +159,48 @@ export async function runAutofix(opts: RunOptions) {
         const issueData = await fetchIssue(issueUrl, githubToken);
         log(`✅ Found Issue #${issueData.number}: ${issueData.title}`, 'success');
 
-        // 2. Clone Repo
-        log('⬇️ Cloning repository...', 'info');
-        // Construct auth URL
+        // 2. Repo Context & Initial DB Sync
         const repoMatch = repoUrl.match(/github\.com\/(.+?)\/(.+?)(\.git)?$/);
         if (!repoMatch) throw new Error("Invalid GitHub URL");
         const [_, owner, repoName] = repoMatch;
+
+        let effectiveProjectId = opts.projectId;
+        if (!effectiveProjectId) {
+            try {
+                const project = await Project.findOne({
+                    $or: [
+                        { owner: owner, repo: repoName },
+                        { owner: { $regex: new RegExp(`^${owner}$`, 'i') }, repo: { $regex: new RegExp(`^${repoName}$`, 'i') } }
+                    ]
+                });
+                if (project) effectiveProjectId = project._id.toString();
+            } catch (e) { /* ignore */ }
+        }
+
+        if (effectiveProjectId) {
+            try {
+                await Issue.findOneAndUpdate(
+                    { projectId: effectiveProjectId, githubId: issueData.number.toString() },
+                    {
+                        status: 'ai_running',
+                        title: issueData.title,
+                        description: issueData.body,
+                        assignedTo: 'ai',
+                        updatedAt: new Date()
+                    },
+                    { upsert: true }
+                );
+            } catch (e) { /* ignore */ }
+        }
+
+        // 3. Clone Repo
+        log('⬇️ Cloning repository...', 'info');
+        // Construct auth URL
         const authRepoUrl = `https://${githubToken}@github.com/${owner}/${repoName}.git`;
 
         runCmd(`git clone "${authRepoUrl}" .`); // Clone into workspace root
 
-        // 3. Create Branch
+        // 4. Create Branch
         const branchName = `fix/issue-${issueData.number}-ai-${Date.now()}`;
         log(`🌿 Creating branch ${branchName}...`, 'info');
         runCmd(`git checkout -b ${branchName}`);
@@ -255,6 +291,56 @@ export async function runAutofix(opts: RunOptions) {
         });
 
         log(`🎉 PR Created: ${prUrl}`, 'success');
+
+        // 10. Sync with Database for Visibility (already determined effectiveProjectId at start)
+        if (effectiveProjectId) {
+            try {
+                await Issue.findOneAndUpdate(
+                    { projectId: effectiveProjectId, githubId: issueData.number.toString() },
+                    {
+                        status: 'pr_created',
+                        prUrl: prUrl,
+                        updatedAt: new Date()
+                    },
+                    { upsert: true }
+                );
+            } catch (dbErr) {
+                log(`⚠️ Failed to sync DB: ${dbErr}`, 'warning');
+            }
+        }
+
+        // 11. Create Notifications
+        if (effectiveProjectId) {
+            try {
+                const members = await ProjectMember.find({ projectId: effectiveProjectId });
+                const notifications = members.map(member => ({
+                    userId: member.userId,
+                    projectId: effectiveProjectId,
+                    type: 'pr_created',
+                    message: `AI Agent has created a fix for issue #${issueData.number}`,
+                    link: prUrl,
+                    isCritical: false
+                }));
+                await Notification.insertMany(notifications);
+                log(`🔔 Created notifications for ${members.length} members.`, 'info');
+            } catch (notifyErr) {
+                log(`⚠️ Failed to create notifications: ${notifyErr}`, 'warning');
+            }
+        } else if (opts.userId) {
+            // If No projectId, just notify the specific user
+            try {
+                await Notification.create({
+                    userId: opts.userId,
+                    type: 'pr_created',
+                    message: `AI Agent has created a fix for issue #${issueData.number}`,
+                    link: prUrl,
+                });
+                log(`🔔 Created notification for requester.`, 'info');
+            } catch (notifyErr) {
+                log(`⚠️ Failed to create notification: ${notifyErr}`, 'warning');
+            }
+        }
+
         return { status: 'SUCCESS', prUrl };
 
     } catch (e: any) {

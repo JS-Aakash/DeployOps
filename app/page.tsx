@@ -22,7 +22,8 @@ import {
   Target,
   BarChart3,
   Calendar,
-  Bell
+  Bell,
+  FileText
 } from "lucide-react";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
@@ -37,6 +38,7 @@ interface DashboardData {
     criticalIssues: number;
     healthyProjects: number;
     tasksCompleted: number;
+    mergedPrs: number;
   };
   recentActivity: any[];
   projectHealth: Array<{
@@ -242,35 +244,62 @@ export default function Dashboard() {
                 </Link>
               </div>
             ) : (
-              data?.recentActivity.map((issue, i) => (
+              data?.recentActivity.map((item, i) => (
                 <div
-                  key={issue._id}
+                  key={item._id}
                   className="flex items-center justify-between p-5 rounded-2xl border border-gray-800 bg-gradient-to-r from-gray-900/50 to-gray-900/30 hover:border-blue-500/30 transition-all group"
                 >
-                  <div className="flex items-center gap-4 flex-1">
-                    <div className="w-12 h-12 rounded-xl bg-green-500/10 border border-green-500/20 flex items-center justify-center group-hover:scale-110 transition-transform">
-                      <CheckCircle2 className="w-6 h-6 text-green-500" />
+                  <div className="flex items-center gap-4 flex-1 min-w-0">
+                    <div className={cn(
+                      "w-12 h-12 rounded-xl border flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform",
+                      item.type === 'requirement' ? "bg-purple-500/10 border-purple-500/20" :
+                        item.status === 'ai_running' ? "bg-amber-500/10 border-amber-500/20" :
+                          item.status === 'closed' ? "bg-blue-500/10 border-blue-500/20" :
+                            "bg-green-500/10 border-green-500/20"
+                    )}>
+                      {item.type === 'requirement' ? (
+                        <FileText className="w-6 h-6 text-purple-500" />
+                      ) : item.status === 'ai_running' ? (
+                        <Zap className="w-6 h-6 text-amber-500 animate-pulse" />
+                      ) : item.status === 'closed' ? (
+                        <GitPullRequest className="w-6 h-6 text-blue-500" />
+                      ) : (
+                        <CheckCircle2 className="w-6 h-6 text-green-500" />
+                      )}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <h4 className="text-white font-bold truncate">{issue.title}</h4>
-                      <p className="text-sm text-gray-500 truncate">{issue.description}</p>
+                      <h4 className="text-white font-bold truncate tracking-tight">{item.title}</h4>
+                      <p className="text-sm text-gray-500 truncate">{item.description || 'AI-generated content'}</p>
                       <div className="flex items-center gap-3 mt-2">
                         <span className="text-xs text-gray-600 font-mono">
-                          {issue.projectId?.repo || "Unknown"}
+                          {item.projectId?.repo || "deployops"}
                         </span>
-                        <span className="text-xs text-blue-400">
-                          {issue.prUrl ? "PR Created" : "In Progress"}
-                        </span>
+                        <div className={cn(
+                          "px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider",
+                          item.type === 'requirement' ? "bg-purple-500/10 text-purple-400 border border-purple-500/20" :
+                            item.status === 'ai_running' ? "bg-amber-500/10 text-amber-500 border border-amber-500/20" :
+                              item.status === 'pr_created' ? "bg-blue-500/10 text-blue-400 border border-blue-500/20" :
+                                "bg-green-500/10 text-green-400 border border-green-500/20"
+                        )}>
+                          {item.type === 'requirement' ? "Technical Spec" : item.status === 'ai_running' ? "AI Scaling" : item.status === 'pr_created' ? "PR Created" : "Completed"}
+                        </div>
                       </div>
                     </div>
                   </div>
-                  {issue.prUrl && (
+                  {(item.prUrl || item.status === 'pr_created') ? (
                     <Link
-                      href={issue.prUrl}
+                      href={item.prUrl || '#'}
                       target="_blank"
-                      className="px-4 py-2 bg-blue-600/10 border border-blue-500/20 text-blue-400 rounded-lg text-sm font-bold hover:bg-blue-600/20 transition-all"
+                      className="px-4 py-2 bg-blue-600/10 border border-blue-500/20 text-blue-400 rounded-lg text-sm font-bold hover:bg-blue-600/20 transition-all shrink-0"
                     >
-                      View PR
+                      {item.prUrl ? "View PR" : "Processing"}
+                    </Link>
+                  ) : item.type === 'requirement' && (
+                    <Link
+                      href={`/projects/${item.projectId?._id || item.projectId}/requirements`}
+                      className="px-4 py-2 bg-purple-600/10 border border-purple-500/20 text-purple-400 rounded-lg text-sm font-bold hover:bg-purple-600/20 transition-all shrink-0"
+                    >
+                      View Spec
                     </Link>
                   )}
                 </div>
@@ -377,11 +406,11 @@ export default function Dashboard() {
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-sm text-gray-400">PRs Merged</span>
-                <span className="text-lg font-bold text-white">{Math.floor((data?.stats.prs || 0) * 0.7)}</span>
+                <span className="text-lg font-bold text-white">{data?.stats.mergedPrs || 0}</span>
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-sm text-gray-400">Issues Resolved</span>
-                <span className="text-lg font-bold text-white">{Math.floor((data?.stats.issues || 0) * 0.6)}</span>
+                <span className="text-lg font-bold text-white">{data?.recentActivity.filter(i => i.status === 'closed').length || 0}</span>
               </div>
             </div>
           </div>

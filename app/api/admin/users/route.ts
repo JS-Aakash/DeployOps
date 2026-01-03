@@ -2,7 +2,8 @@ import { NextResponse } from 'next/server';
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import dbConnect from '@/lib/mongodb';
-import { User, ProjectMember, Project } from '@/models';
+import { User, ProjectMember } from '@/models';
+import { isGlobalAdmin } from '@/lib/auth-utils';
 
 export async function GET() {
     const session = await getServerSession(authOptions);
@@ -10,24 +11,12 @@ export async function GET() {
         return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    if (!(await isGlobalAdmin())) {
+        return NextResponse.json({ error: "Admin access required" }, { status: 403 });
+    }
+
     await dbConnect();
     try {
-        // Get current user
-        const currentUser = await User.findOne({ email: session.user.email.toLowerCase() });
-        if (!currentUser) {
-            return NextResponse.json({ error: "User not found" }, { status: 404 });
-        }
-
-        // Check if user is admin on any project
-        const adminMembership = await ProjectMember.findOne({
-            userId: currentUser._id,
-            role: 'admin'
-        });
-
-        if (!adminMembership) {
-            return NextResponse.json({ error: "Admin access required" }, { status: 403 });
-        }
-
         // Fetch all users with their project memberships
         const allUsers = await User.find({}).lean();
 
@@ -36,8 +25,11 @@ export async function GET() {
                 .populate('projectId', 'name')
                 .lean();
 
-            const projectCount = memberships.length;
-            const roles = [...new Set(memberships.map(m => m.role))];
+            // Filter out memberships for projects that no longer exist
+            const validMemberships = memberships.filter((m: any) => m.projectId);
+
+            const projectCount = validMemberships.length;
+            const roles = [...new Set(validMemberships.map((m: any) => m.role))];
             const primaryRole = roles.includes('admin') ? 'admin' :
                 roles.includes('lead') ? 'lead' :
                     roles.includes('developer') ? 'developer' :
@@ -52,7 +44,7 @@ export async function GET() {
                 source: user.source,
                 primaryRole,
                 projectCount,
-                projects: memberships.map(m => ({
+                projects: validMemberships.map((m: any) => ({
                     projectId: m.projectId._id,
                     projectName: m.projectId.name,
                     role: m.role
