@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server';
 import dbConnect from '@/lib/mongodb';
 import { Project, Issue, ProjectMember, User, Monitoring, Task } from '@/models';
 
+export const dynamic = 'force-dynamic';
+
 export async function GET() {
     await dbConnect();
     try {

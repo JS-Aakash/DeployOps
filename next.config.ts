@@ -14,13 +14,11 @@ const nextConfig = {
       },
     ],
   },
-  // Ensure that build succeeds even with some lint warnings
+  // In Next.js 15/16, some legacy ignore flags are moved or deprecated.
+  // We'll keep them minimal to avoid 'unrecognized key' errors.
   typescript: {
     ignoreBuildErrors: true,
-  },
-  eslint: {
-    ignoreDuringBuilds: true,
-  },
+  }
 };
 
 export default nextConfig;
