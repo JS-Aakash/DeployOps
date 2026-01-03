@@ -57,10 +57,11 @@ interface Version {
 export default function VersionsPage({ params }: { params: Promise<{ id: string }> }) {
     const { id } = use(params);
     const [versions, setVersions] = useState<Version[]>([]);
+    const [repoInfo, setRepoInfo] = useState<{ owner: string, repo: string } | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [selectedVersion, setSelectedVersion] = useState<Version | null>(null);
     const [isRollingBack, setIsRollingBack] = useState(false);
-    const [rollbackResult, setRollbackResult] = useState<{ success: boolean; prUrl?: string; error?: string } | null>(null);
+    const [rollbackResult, setRollbackResult] = useState<{ success: boolean; prUrl?: string; prId?: string; error?: string } | null>(null);
 
     useEffect(() => {
         fetchVersions();
@@ -70,8 +71,9 @@ export default function VersionsPage({ params }: { params: Promise<{ id: string 
         try {
             const res = await fetch(`/api/projects/${id}/versions`);
             const data = await res.json();
-            if (Array.isArray(data)) {
-                setVersions(data);
+            if (data.versions) {
+                setVersions(data.versions);
+                setRepoInfo({ owner: data.owner, repo: data.repo });
             }
         } catch (e) {
             console.error(e);
@@ -97,7 +99,12 @@ export default function VersionsPage({ params }: { params: Promise<{ id: string 
             const data = await res.json();
 
             if (res.ok) {
-                setRollbackResult({ success: true, prUrl: data.prUrl });
+                const prNum = data.prUrl.match(/\/pull\/(\d+)/)?.[1];
+                setRollbackResult({
+                    success: true,
+                    prUrl: data.prUrl,
+                    prId: prNum ? `gh-${id}---${prNum}` : undefined
+                });
             } else {
                 setRollbackResult({ success: false, error: data.error });
             }
@@ -155,9 +162,12 @@ export default function VersionsPage({ params }: { params: Promise<{ id: string 
                                         <div className="flex items-start gap-3">
                                             <GitPullRequest className="w-5 h-5 text-purple-400 mt-0.5" />
                                             <div>
-                                                <a href={version.url} target="_blank" className="text-sm font-bold text-white hover:text-blue-400 hover:underline">
+                                                <Link
+                                                    href={`/monitoring/pull-requests/gh-${id}---${version.number}`}
+                                                    className="text-sm font-bold text-white hover:text-blue-400"
+                                                >
                                                     {version.title}
-                                                </a>
+                                                </Link>
                                                 <div className="flex items-center gap-2 mt-1">
                                                     <span className="text-xs text-gray-500">PR #{version.number}</span>
                                                 </div>
@@ -273,13 +283,22 @@ export default function VersionsPage({ params }: { params: Promise<{ id: string 
                                         <h4 className="text-xl font-bold text-white mb-2">Rollback PR Created!</h4>
                                         <p className="text-gray-400 mb-6">A new Pull Request to revert these changes is now available.</p>
                                         <div className="flex gap-3">
-                                            <a
-                                                href={rollbackResult.prUrl}
-                                                target="_blank"
-                                                className="flex-1 flex items-center justify-center gap-2 py-3 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-500 transition-all"
-                                            >
-                                                View PR on GitHub <ExternalLink className="w-4 h-4" />
-                                            </a>
+                                            {rollbackResult.prId ? (
+                                                <Link
+                                                    href={`/monitoring/pull-requests/${rollbackResult.prId}`}
+                                                    className="flex-1 flex items-center justify-center gap-2 py-3 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-500 transition-all"
+                                                >
+                                                    Review Rollback PR
+                                                </Link>
+                                            ) : (
+                                                <a
+                                                    href={rollbackResult.prUrl}
+                                                    target="_blank"
+                                                    className="flex-1 flex items-center justify-center gap-2 py-3 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-500 transition-all"
+                                                >
+                                                    View PR on GitHub <ExternalLink className="w-4 h-4" />
+                                                </a>
+                                            )}
                                             <button
                                                 onClick={() => { setSelectedVersion(null); fetchVersions(); }}
                                                 className="px-6 py-3 bg-gray-800 text-gray-300 rounded-xl font-bold hover:bg-gray-700 transition-all border border-gray-700"

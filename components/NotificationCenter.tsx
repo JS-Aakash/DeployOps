@@ -24,6 +24,7 @@ interface Notification {
     isCritical: boolean;
     createdAt: string;
     projectId?: {
+        _id: string;
         name: string;
     };
 }
@@ -155,8 +156,23 @@ export function NotificationCenter() {
                                         </div>
                                         {n.link && (
                                             <Link
-                                                href={n.link}
-                                                onClick={() => markAsRead(n._id)}
+                                                href={(() => {
+                                                    const match = n.link.match(/github\.com\/([^/]+)\/([^/]+)\/pull\/(\d+)/);
+                                                    if (match) {
+                                                        const owner = match[1];
+                                                        const repo = match[2];
+                                                        const prNum = match[3];
+                                                        if (n.projectId?._id) {
+                                                            return `/monitoring/pull-requests/gh-${n.projectId._id}---${prNum}`;
+                                                        }
+                                                        return `/monitoring/pull-requests/gh-external---${prNum}---${repo}---${owner}`;
+                                                    }
+                                                    return n.link;
+                                                })()}
+                                                onClick={() => {
+                                                    markAsRead(n._id);
+                                                    setIsOpen(false);
+                                                }}
                                                 className="absolute inset-0 rounded-xl"
                                                 role="button"
                                                 tabIndex={0}

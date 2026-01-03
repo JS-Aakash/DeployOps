@@ -55,10 +55,11 @@ export async function GET(
                 });
 
                 return {
-                    issueId: linkedIssue?._id || `gh-${pr.number}`,
+                    issueId: linkedIssue?._id?.toString() || `gh-${id}-${pr.number}`,
                     issueTitle: linkedIssue?.title || pr.title,
                     requirement: (linkedIssue as any)?.requirementId,
                     prUrl: pr.html_url,
+                    prNumber: pr.number,
                     prStatus: pr.state,
                     isMerged: !!pr.merged_at,
                     ghTitle: pr.title,
@@ -74,9 +75,10 @@ export async function GET(
                 };
             } catch (err) {
                 return {
-                    issueId: linkedIssue?._id || `gh-${pr.number}`,
+                    issueId: linkedIssue?._id?.toString() || `gh-${id}-${pr.number}`,
                     issueTitle: linkedIssue?.title || pr.title,
                     prUrl: pr.html_url,
+                    prNumber: pr.number,
                     prStatus: pr.state,
                     isMerged: !!pr.merged_at,
                     ghTitle: pr.title,

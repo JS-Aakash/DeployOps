@@ -89,7 +89,7 @@ export default function GlobalMonitoringPage() {
                 </div>
             </div>
 
-            {/* Filter Bar */}
+            {/* Filter Bar & Activity Toggle */}
             <div className="flex flex-col md:flex-row gap-4">
                 <div className="relative flex-1">
                     <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 w-5 h-5" />
@@ -100,6 +100,50 @@ export default function GlobalMonitoringPage() {
                         onChange={(e) => setSearch(e.target.value)}
                         className="w-full pl-12 pr-4 py-4 bg-gray-900 border border-gray-800 rounded-2xl focus:outline-none focus:border-blue-500 transition-all text-white font-medium"
                     />
+                </div>
+                <Link
+                    href="/"
+                    className="flex items-center gap-2 px-6 py-4 bg-gray-900 border border-gray-800 rounded-2xl text-gray-400 hover:text-white transition-all font-bold"
+                >
+                    <Activity className="w-5 h-5" />
+                    Activity Logs
+                </Link>
+            </div>
+
+            {/* Recent PR Activity */}
+            <div className="p-8 rounded-[2rem] bg-gradient-to-br from-blue-900/10 to-transparent border border-gray-800">
+                <div className="flex items-center justify-between mb-6">
+                    <h3 className="text-xl font-bold text-white flex items-center gap-2">
+                        <Github className="w-6 h-6 text-blue-500" />
+                        Active Code Changes
+                    </h3>
+                    <span className="text-xs text-blue-400 font-bold px-3 py-1 bg-blue-500/10 rounded-full border border-blue-500/20">
+                        LIVE FEED
+                    </span>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {projects.flatMap(p => p.monitoring?.recentPrs || []).slice(0, 3).map((pr: any) => (
+                        <Link
+                            key={pr._id}
+                            href={`/monitoring/pull-requests/${pr._id}`}
+                            className="p-4 rounded-2xl bg-black/40 border border-gray-800 hover:border-blue-500/50 transition-all group"
+                        >
+                            <div className="flex items-start gap-4">
+                                <div className="w-10 h-10 rounded-xl bg-blue-500/10 flex items-center justify-center border border-blue-500/20 group-hover:scale-110 transition-transform">
+                                    <Github className="w-5 h-5 text-blue-400" />
+                                </div>
+                                <div>
+                                    <h4 className="text-sm font-bold text-white truncate group-hover:text-blue-400 transition-colors uppercase">{pr.title}</h4>
+                                    <p className="text-[10px] text-gray-500 mt-1 uppercase font-mono tracking-tighter">Status: {pr.status}</p>
+                                </div>
+                            </div>
+                        </Link>
+                    ))}
+                    {projects.every(p => !p.monitoring?.recentPrs?.length) && (
+                        <div className="col-span-full py-8 text-center text-gray-600 italic text-sm">
+                            No active code changes detected in monitored projects.
+                        </div>
+                    )}
                 </div>
             </div>
 

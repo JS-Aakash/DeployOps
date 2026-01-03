@@ -65,7 +65,11 @@ export async function GET(
                 body: pr.body
             }));
 
-        return NextResponse.json(versions);
+        return NextResponse.json({
+            versions,
+            owner,
+            repo
+        });
 
     } catch (e: any) {
         console.error("Fetch versions failed:", e);

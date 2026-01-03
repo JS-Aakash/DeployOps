@@ -276,11 +276,10 @@ export default function ProjectIssuesPage({ params }: { params: Promise<{ id: st
                                         {getStatusBadge(issue.status)}
                                         {issue.prUrl && (
                                             <Link
-                                                href={issue.prUrl}
-                                                target="_blank"
+                                                href={`/monitoring/pull-requests/${issue._id}`}
                                                 className="flex items-center gap-1 text-[10px] text-purple-400 mt-2 hover:underline"
                                             >
-                                                <ExternalLink className="w-3 h-3" /> View PR
+                                                <GitPullRequest className="w-3 h-3" /> Internal PR View
                                             </Link>
                                         )}
                                     </td>

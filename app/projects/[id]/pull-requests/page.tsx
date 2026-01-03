@@ -189,9 +189,9 @@ export default function PullRequestsPage({ params }: { params: Promise<{ id: str
                                                         )}
                                                     </div>
                                                     <div className="flex items-center gap-2 mt-1">
-                                                        <a href={pr.prUrl} target="_blank" className="text-[10px] text-gray-500 hover:text-blue-400 flex items-center gap-1">
-                                                            <ExternalLink className="w-3 h-3" /> View on GitHub
-                                                        </a>
+                                                        <Link href={`/monitoring/pull-requests/${pr.issueId}`} className="text-[10px] text-gray-500 hover:text-blue-400 flex items-center gap-1 bg-gray-900 px-2 py-0.5 rounded border border-gray-800">
+                                                            <GitPullRequest className="w-3 h-3" /> Internal PR View
+                                                        </Link>
                                                         <span className="text-[10px] text-gray-700 font-mono tracking-tighter uppercase italic">
                                                             BY: {pr.author?.name || 'UNKNOWN'}
                                                         </span>
@@ -221,12 +221,12 @@ export default function PullRequestsPage({ params }: { params: Promise<{ id: str
                                             )}
                                         </td>
                                         <td className="px-6 py-6 text-right">
-                                            <button
-                                                onClick={() => setSelectedPr(pr)}
-                                                className="px-6 py-2.5 bg-gray-800 text-white rounded-xl text-xs font-bold hover:bg-gray-700 transition-all border border-gray-700 opacity-0 group-hover:opacity-100"
+                                            <Link
+                                                href={`/monitoring/pull-requests/${pr.issueId}`}
+                                                className="inline-flex items-center justify-center px-4 py-2.5 bg-gray-800 text-white rounded-xl text-xs font-bold hover:bg-gray-700 transition-all border border-gray-700 opacity-0 group-hover:opacity-100 min-w-[140px]"
                                             >
                                                 Review AI Fix
-                                            </button>
+                                            </Link>
                                         </td>
                                     </tr>
                                 ))
@@ -294,13 +294,12 @@ export default function PullRequestsPage({ params }: { params: Promise<{ id: str
 
                         {/* Actions */}
                         <div className="mt-8 pt-8 border-t border-gray-800 flex gap-4">
-                            <a
-                                href={selectedPr.prUrl}
-                                target="_blank"
+                            <Link
+                                href={`/monitoring/pull-requests/${selectedPr.issueId}`}
                                 className="flex-1 py-4 bg-gray-800 text-white rounded-2xl font-bold hover:bg-gray-700 transition-all text-sm text-center border border-gray-700"
                             >
-                                Full Code Diff (GitHub)
-                            </a>
+                                Full Code Diff (Internal)
+                            </Link>
                             {!selectedPr.isMerged && selectedPr.prStatus !== 'closed' ? (
                                 <button
                                     onClick={() => setShowMergeConfirm(true)}

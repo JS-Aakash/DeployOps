@@ -288,11 +288,10 @@ export default function Dashboard() {
                   </div>
                   {(item.prUrl || item.status === 'pr_created') ? (
                     <Link
-                      href={item.prUrl || '#'}
-                      target="_blank"
+                      href={`/monitoring/pull-requests/${item._id}`}
                       className="px-4 py-2 bg-blue-600/10 border border-blue-500/20 text-blue-400 rounded-lg text-sm font-bold hover:bg-blue-600/20 transition-all shrink-0"
                     >
-                      {item.prUrl ? "View PR" : "Processing"}
+                      {item.prUrl ? "Review Fix" : "Processing"}
                     </Link>
                   ) : item.type === 'requirement' && (
                     <Link

@@ -14,7 +14,8 @@ import {
     FolderPlus,
     Download,
     Lock,
-    Globe
+    Globe,
+    Activity
 } from "lucide-react";
 
 export default function ProjectsPage() {
@@ -126,11 +127,11 @@ export default function ProjectsPage() {
                                         <Github className="w-6 h-6 text-blue-500" />
                                     </div>
                                     <Link
-                                        href={project.repoUrl}
-                                        target="_blank"
-                                        className="text-gray-500 hover:text-white"
+                                        href={`/projects/${project._id}/monitoring`}
+                                        className="text-gray-500 hover:text-blue-400 p-2 bg-gray-900 rounded-lg border border-gray-800 transition-all"
+                                        title="Internal Monitoring"
                                     >
-                                        <ExternalLink className="w-4 h-4" />
+                                        <Activity className="w-4 h-4" />
                                     </Link>
                                 </div>
                                 <h3 className="text-xl font-bold text-white group-hover:text-blue-400 transition-colors uppercase tracking-tight">

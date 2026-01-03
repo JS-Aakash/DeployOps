@@ -273,7 +273,20 @@ export default function NotificationsPage() {
                                         </span>
                                         {n.link && (
                                             <Link
-                                                href={n.link}
+                                                href={(() => {
+                                                    const match = n.link.match(/github\.com\/([^/]+)\/([^/]+)\/pull\/(\d+)/);
+                                                    if (match) {
+                                                        const owner = match[1];
+                                                        const repo = match[2];
+                                                        const prNum = match[3];
+                                                        // Use internal project ID if available for rock-solid resolution
+                                                        if (n.projectId?._id) {
+                                                            return `/monitoring/pull-requests/gh-${n.projectId._id}---${prNum}`;
+                                                        }
+                                                        return `/monitoring/pull-requests/gh-external---${prNum}---${repo}---${owner}`;
+                                                    }
+                                                    return n.link;
+                                                })()}
                                                 onClick={() => markAsRead(n._id)}
                                                 className="flex items-center gap-1 text-blue-400 hover:text-blue-300 transition-colors ml-auto"
                                             >

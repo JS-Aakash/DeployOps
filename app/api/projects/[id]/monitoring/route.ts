@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import dbConnect from '@/lib/mongodb';
-import { Monitoring, Project } from '@/models';
+import { Monitoring, Project, Issue } from '@/models';
 import { checkProjectHealth } from '@/lib/monitoring-service';
 import { authorize } from '@/lib/auth-utils';
 import mongoose from 'mongoose';
@@ -40,21 +40,41 @@ export async function GET(
                     metrics: { errorRate: 0, latency: 0, failureCount: 0, uptime: 100 }
                 });
             }
+            // Even if not configured for uptime, we still track PR activity
+            const recentPrs = await Issue.find({
+                projectId: id,
+                prUrl: { $exists: true, $ne: "" }
+            })
+                .sort({ updatedAt: -1 })
+                .limit(3)
+                .lean();
+
             return NextResponse.json({
                 ...monitoring.toObject(),
                 isConfigured: false,
                 projectName: project.name,
+                recentPrs, // Attach recent PRs even if unconfigured
                 config: null
             });
         }
 
-        // Project is configured, fetch live metrics - pass the fresh project object directly
+        // Fetch Recent PRs from Issues
+        const recentPrs = await Issue.find({
+            projectId: id,
+            prUrl: { $exists: true, $ne: "" }
+        })
+            .sort({ updatedAt: -1 })
+            .limit(3)
+            .lean();
+
+        // Pass the fresh project object directly
         const status = await checkProjectHealth(id, project);
         return NextResponse.json({
             ...status.toObject(),
             isConfigured: true,
             projectName: project.name,
             provider,
+            recentPrs, // Attach recent PRs
             config: {
                 vercelProjectId: project.vercelProjectId,
                 netlifySiteId: project.netlifySiteId,

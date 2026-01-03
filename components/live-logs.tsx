@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useState, useRef } from "react";
-import { Terminal, CheckCircle2, XCircle, Loader2, ExternalLink, ArrowLeft } from "lucide-react";
+import { Terminal, CheckCircle2, XCircle, Loader2, ExternalLink, ArrowLeft, GitPullRequest } from "lucide-react";
+import Link from "next/link";
 
 interface LogEntry {
     timestamp: string;
@@ -73,7 +74,6 @@ export function LiveLogs({ directStreamConfig, onBack }: LiveLogsProps) {
                 setCurrentStep("Completed!");
             }
 
-            // Extract PR URL from logs
             if (data.message.includes('https://github.com') && data.message.includes('/pull/')) {
                 const match = data.message.match(/(https:\/\/github\.com\/[^\s]+\/pull\/\d+)/);
                 if (match) {
@@ -222,15 +222,22 @@ export function LiveLogs({ directStreamConfig, onBack }: LiveLogsProps) {
                 </div>
 
                 {prUrl && (
-                    <a
-                        href={prUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium transition-all"
+                    <Link
+                        href={(() => {
+                            const match = prUrl.match(/github\.com\/([^/]+)\/([^/]+)\/pull\/(\d+)/);
+                            if (match) {
+                                const owner = match[1];
+                                const repo = match[2];
+                                const prNum = match[3];
+                                return `/monitoring/pull-requests/gh-external---${prNum}---${repo}---${owner}`;
+                            }
+                            return prUrl;
+                        })()}
+                        className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-all"
                     >
-                        <span>View Pull Request</span>
+                        <span>Internal PR Review</span>
                         <ExternalLink className="w-4 h-4" />
-                    </a>
+                    </Link>
                 )}
             </div>
 

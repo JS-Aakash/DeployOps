@@ -14,7 +14,8 @@ import {
     X,
     Calendar,
     Flag,
-    AlertCircle
+    AlertCircle,
+    GitPullRequest
 } from "lucide-react";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
@@ -202,9 +203,12 @@ export default function MyTasksPage() {
                                                 {task.priority}
                                             </span>
                                             {task.prUrl && (
-                                                <a href={task.prUrl} target="_blank" className="text-purple-400 hover:text-purple-300 transition-colors">
-                                                    <ExternalLink className="w-4 h-4" />
-                                                </a>
+                                                <Link
+                                                    href={`/monitoring/pull-requests/${task.issueId || `gh-${task.projectId?._id}-${task.prUrl.match(/\/pull\/(\d+)/)?.[1]}`}`}
+                                                    className="text-purple-400 hover:text-purple-300 transition-colors"
+                                                >
+                                                    <GitPullRequest className="w-4 h-4" />
+                                                </Link>
                                             )}
                                         </div>
 
