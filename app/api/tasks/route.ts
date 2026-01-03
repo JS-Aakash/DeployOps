@@ -4,6 +4,7 @@ import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import dbConnect from '@/lib/mongodb';
 import { Task, Project, ProjectMember, User, Notification } from '@/models';
 import { createNotification } from '@/lib/notification-service';
+import mongoose from 'mongoose';
 
 export async function POST(req: NextRequest) {
     const session = await getServerSession(authOptions);
@@ -28,7 +29,26 @@ export async function POST(req: NextRequest) {
             return NextResponse.json({ error: "Project not found" }, { status: 404 });
         }
 
-        const targetAssigneeId = bodyAssignedTo || user._id;
+        let targetAssigneeId = user._id;
+        if (bodyAssignedTo) {
+            if (mongoose.Types.ObjectId.isValid(bodyAssignedTo)) {
+                targetAssigneeId = new mongoose.Types.ObjectId(bodyAssignedTo);
+            } else {
+                // Try to find user by name, email, or github handle
+                const foundUser = await User.findOne({
+                    $or: [
+                        { name: { $regex: new RegExp(`^${bodyAssignedTo}$`, 'i') } },
+                        { email: bodyAssignedTo.toLowerCase() },
+                        { githubUsername: { $regex: new RegExp(`^${bodyAssignedTo}$`, 'i') } }
+                    ]
+                });
+                if (foundUser) {
+                    targetAssigneeId = foundUser._id;
+                } else {
+                    return NextResponse.json({ error: `User "${bodyAssignedTo}" not found` }, { status: 404 });
+                }
+            }
+        }
 
         // Create Task
         const task = await Task.create({

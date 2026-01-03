@@ -3,6 +3,7 @@ import { Inter } from "next/font/google";
 import "./globals.css";
 import { Providers } from "@/components/providers";
 import { MainLayout } from "@/components/main-layout";
+import { AiAssistant } from "@/components/ai-assistant";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -21,6 +22,7 @@ export default function RootLayout({
             <body className={`${inter.className} bg-gray-950 text-gray-200 antialiased`}>
                 <Providers>
                     <MainLayout>{children}</MainLayout>
+                    <AiAssistant />
                 </Providers>
             </body>
         </html>

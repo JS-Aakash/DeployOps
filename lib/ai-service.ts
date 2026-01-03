@@ -29,10 +29,10 @@ export async function callAI(
 
     let modelName = 'gpt-4o';
     if (isOpenRouter) modelName = 'google/gemini-2.0-flash-exp:free';
-    else if (isCerebras) modelName = 'llama3.1-8b';
     else if (isTogether) modelName = 'meta-llama/Meta-Llama-3.1-70B-Instruct-Turbo';
     else if (isGroq) modelName = 'llama-3.3-70b-versatile';
     else if (isOllama) modelName = apiKey.split(':')[1] || 'llama3';
+    else if (isCerebras) modelName = 'llama-3.3-70b';
 
     // Groq doesn't support response_format json_object, so we handle it via prompt
     let finalSystemPrompt = systemPrompt;
