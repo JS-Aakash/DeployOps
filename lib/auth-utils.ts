@@ -112,30 +112,50 @@ export async function authorize(projectId: string, allowedRoles: string[]) {
     return true;
 }
 
-export async function isGlobalAdmin() {
-    const session = await getServerSession(authOptions);
-    if (!session?.user?.email) return false;
+export async function checkIsGlobalAdmin(email: string) {
+    if (!email) return false;
+    const normalizedEmail = email.toLowerCase();
 
-    const email = session.user.email.toLowerCase();
+    // 1. Environment Variable Fallback
+    if (process.env.ADMIN_EMAIL && normalizedEmail === process.env.ADMIN_EMAIL.toLowerCase()) {
+        return true;
+    }
+
     await dbConnect();
 
-    let user = await User.findOne({ email });
-    if (!user && (session.user as any).id) {
-        user = await User.findById((session.user as any).id);
-    }
+    const user = await User.findOne({ email: normalizedEmail });
     if (!user) return false;
 
-    // Check if user is admin/lead on ANY project
+    // 2. Strict Role Check (Super Admin)
+    if ((user as any).role === 'admin') return true;
+
+    // 3. Project-Level Admin/Owner Check
     const memberships = await ProjectMember.find({ userId: user._id });
     if (memberships.some(m => m.role === 'admin' || m.role === 'lead')) return true;
 
-    // Reconciliation Check: check if they are owner of any project
+    // 4. GitHub Owner Check
     if (user.githubUsername) {
         const ownedProjects = await Project.find({ owner: user.githubUsername });
-        if (ownedProjects.length > 0) return true;
+        if (ownedProjects.length > 0) {
+            // Self-heal
+            for (const project of ownedProjects) {
+                await ProjectMember.findOneAndUpdate(
+                    { projectId: project._id, userId: user._id },
+                    { $set: { role: 'admin' } },
+                    { upsert: true }
+                );
+            }
+            return true;
+        }
     }
 
     return false;
+}
+
+export async function isGlobalAdmin() {
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.email) return false;
+    return checkIsGlobalAdmin(session.user.email);
 }
 
 export function authError() {

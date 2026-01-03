@@ -5,6 +5,7 @@ import dbConnect from '@/lib/mongodb';
 import { Issue, Project } from '@/models';
 import { authorize, authError } from "@/lib/auth-utils";
 import { Octokit } from '@octokit/rest';
+import { logAudit } from '@/lib/audit-service';
 
 export async function GET(
     req: Request,
@@ -73,6 +74,18 @@ export async function POST(
             type,
             assignedTo: assignedTo || 'ai',
             githubId // Store the GitHub Issue ID if created
+        });
+
+        // Log issue creation
+        await logAudit({
+            actorId: (session?.user as any).id,
+            actorName: session?.user?.name || 'User',
+            actorType: 'user',
+            action: 'issue_create',
+            entityType: 'issue',
+            entityId: issue._id.toString(),
+            projectId: id,
+            description: `${session?.user?.name} created issue: ${issue.title} ${githubId ? `(GitHub #${githubId})` : ''}`
         });
 
         return NextResponse.json(issue, { status: 201 });

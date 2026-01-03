@@ -4,13 +4,14 @@ import { Issue } from '@/models';
 import { Octokit } from '@octokit/rest';
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
+import { logAudit } from '@/lib/audit-service';
 
 export async function POST(req: Request) {
     await dbConnect();
 
     try {
         const body = await req.json();
-        const { issueId, confirm } = body;
+        const { issueId, confirm, comment } = body;
 
         if (!confirm) {
             return NextResponse.json({ error: "Merge confirmation required" }, { status: 400 });
@@ -69,6 +70,19 @@ export async function POST(req: Request) {
         } catch (taskError) {
             console.error("Auto-task completion failed:", taskError);
         }
+
+        // 4. Log the merge event
+        await logAudit({
+            actorId: (session?.user as any).id,
+            actorName: session?.user?.name || 'Admin',
+            actorType: 'user',
+            action: 'pr_merge',
+            entityType: 'pr',
+            entityId: issue.prUrl,
+            projectId: issue.projectId.toString(),
+            description: `${session?.user?.name} approved and merged PR for Issue: ${issue.title}`,
+            metadata: { comment }
+        });
 
         return NextResponse.json({
             success: true,

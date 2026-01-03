@@ -6,6 +6,7 @@ import OpenAI from 'openai';
 import { Octokit } from '@octokit/rest';
 import { callAI } from './ai-service';
 import { Notification, ProjectMember, Issue, Project } from '@/models';
+import { logAudit } from './audit-service';
 
 // Prompts
 const FIX_PROMPT_TEMPLATE = `You are an expert software engineer fixing a GitHub issue.
@@ -193,6 +194,18 @@ export async function runAutofix(opts: RunOptions) {
             } catch (e) { /* ignore */ }
         }
 
+        // Log AI fix start
+        await logAudit({
+            actorId: 'ai-agent',
+            actorName: 'AI Solver',
+            actorType: 'ai',
+            action: 'ai_fix_start',
+            entityType: 'issue',
+            entityId: issueData.number.toString(),
+            projectId: effectiveProjectId,
+            description: `AI Solver started analyzing and fixing issue #${issueData.number}: ${issueData.title}`
+        });
+
         // 3. Clone Repo
         log('⬇️ Cloning repository...', 'info');
         // Construct auth URL
@@ -309,6 +322,18 @@ export async function runAutofix(opts: RunOptions) {
             }
         }
 
+        // Log AI success
+        await logAudit({
+            actorId: 'ai-agent',
+            actorName: 'AI Solver',
+            actorType: 'ai',
+            action: 'pr_created',
+            entityType: 'pr',
+            entityId: prUrl,
+            projectId: effectiveProjectId,
+            description: `AI Solver successfully created Pull Request for issue #${issueData.number}`
+        });
+
         // 11. Create Notifications
         if (effectiveProjectId) {
             try {
@@ -345,6 +370,19 @@ export async function runAutofix(opts: RunOptions) {
 
     } catch (e: any) {
         log(`❌ Error: ${e.message}`, 'error');
+
+        // Log AI failure
+        await logAudit({
+            actorId: 'ai-agent',
+            actorName: 'AI Solver',
+            actorType: 'ai',
+            action: 'ai_fix_failed',
+            entityType: 'issue',
+            entityId: (opts as any).issueNumber || 'unknown',
+            projectId: (opts as any).projectId,
+            description: `AI Solver failed to fix issue: ${e.message}`
+        });
+
         throw e;
     } finally {
         // Cleanup

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useSession } from "next-auth/react";
 import {
     Users,
     Shield,
@@ -16,8 +17,13 @@ import {
     CheckCircle2,
     XCircle,
     Edit,
-    Trash2
+    Trash2,
+    ShieldCheck,
+    Clock,
+    ExternalLink,
+    Sparkles
 } from "lucide-react";
+import Link from "next/link";
 import { cn } from "@/lib/utils";
 
 interface User {
@@ -60,15 +66,35 @@ interface Project {
 }
 
 export default function AdminPage() {
+    const { data: session, status } = useSession();
     const [users, setUsers] = useState<User[]>([]);
     const [projects, setProjects] = useState<Project[]>([]);
     const [activeTab, setActiveTab] = useState("users");
     const [loading, setLoading] = useState(true);
     const [searchQuery, setSearchQuery] = useState("");
 
+    const [isAdmin, setIsAdmin] = useState<boolean | null>(null);
+
     useEffect(() => {
-        fetchData();
-    }, []);
+        if (session?.user) {
+            checkAuth();
+        } else if (status === "unauthenticated") {
+            setIsAdmin(false);
+        }
+    }, [session, status]);
+
+    const checkAuth = async () => {
+        try {
+            const res = await fetch('/api/auth/check-admin');
+            const data = await res.json();
+            setIsAdmin(data.isAdmin);
+            if (data.isAdmin) {
+                fetchData();
+            }
+        } catch (error) {
+            setIsAdmin(false);
+        }
+    };
 
     const fetchData = async () => {
         setLoading(true);
@@ -113,10 +139,25 @@ export default function AdminPage() {
         project.description?.toLowerCase().includes(searchQuery.toLowerCase())
     );
 
-    if (loading) {
+    if (status === "loading" || (session && isAdmin === null)) {
         return (
             <div className="flex items-center justify-center h-96">
                 <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
+            </div>
+        );
+    }
+
+    if (isAdmin === false) {
+        return (
+            <div className="flex flex-col items-center justify-center min-h-[60vh] text-center p-8">
+                <div className="w-16 h-16 bg-red-500/10 rounded-full flex items-center justify-center mb-4">
+                    <Shield className="w-8 h-8 text-red-500" />
+                </div>
+                <h1 className="text-2xl font-bold text-white mb-2">Access Denied</h1>
+                <p className="text-gray-400 max-w-md">You do not have the required permissions to access the system administration portal.</p>
+                <Link href="/" className="mt-8 px-6 py-2 bg-gray-800 hover:bg-gray-700 text-white rounded-xl transition-all">
+                    Return to Dashboard
+                </Link>
             </div>
         );
     }
@@ -198,9 +239,61 @@ export default function AdminPage() {
                 >
                     Integrations
                 </button>
+                <button
+                    onClick={() => setActiveTab("audit")}
+                    className={cn(
+                        "px-6 py-2.5 rounded-xl font-bold text-sm transition-all",
+                        activeTab === 'audit'
+                            ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/20'
+                            : 'text-gray-400 hover:text-gray-200'
+                    )}
+                >
+                    Audit Logs
+                </button>
             </div>
 
             {/* Users Tab */}
+            {activeTab === "audit" && (
+                <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                    <div className="p-12 rounded-3xl border border-gray-800 bg-black/40 text-center space-y-6 backdrop-blur-md">
+                        <div className="w-20 h-20 bg-blue-500/10 rounded-2xl flex items-center justify-center mx-auto">
+                            <ShieldCheck className="w-10 h-10 text-blue-500" />
+                        </div>
+                        <div className="max-w-md mx-auto">
+                            <h3 className="text-2xl font-bold text-white mb-2">System Audit Infrastructure</h3>
+                            <p className="text-gray-400 text-sm">
+                                View immutable, system-generated logs of all critical human and AI actions across the platform.
+                            </p>
+                        </div>
+                        <Link
+                            href="/admin/audit-logs"
+                            className="inline-flex items-center gap-2 px-8 py-4 bg-blue-600 text-white rounded-2xl font-bold hover:bg-blue-500 transition-all shadow-xl shadow-blue-500/20"
+                        >
+                            Open Dedicated Audit Ledger
+                            <ExternalLink className="w-4 h-4" />
+                        </Link>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        <div className="p-6 rounded-2xl border border-gray-800 bg-gray-900/50">
+                            <Clock className="w-6 h-6 text-purple-400 mb-3" />
+                            <h4 className="text-sm font-bold text-white mb-1">Real-time Tracking</h4>
+                            <p className="text-xs text-gray-500">Every login, deploy, and PR is captured with millisecond precision.</p>
+                        </div>
+                        <div className="p-6 rounded-2xl border border-gray-800 bg-gray-900/50">
+                            <Users className="w-6 h-6 text-blue-400 mb-3" />
+                            <h4 className="text-sm font-bold text-white mb-1">User Attribution</h4>
+                            <p className="text-xs text-gray-500">Trace actions back to specific admins or developers immediately.</p>
+                        </div>
+                        <div className="p-6 rounded-2xl border border-gray-800 bg-gray-900/50">
+                            <Sparkles className="w-6 h-6 text-amber-400 mb-3" />
+                            <h4 className="text-sm font-bold text-white mb-1">AI Observability</h4>
+                            <p className="text-xs text-gray-500">Monitor autonomous AI agents and their impact on the codebase.</p>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             {activeTab === "users" && (
                 <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
                     <div className="flex flex-col md:flex-row items-center justify-between gap-4">

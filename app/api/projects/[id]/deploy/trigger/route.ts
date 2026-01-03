@@ -4,6 +4,7 @@ import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import dbConnect from "@/lib/mongodb";
 import { Project } from "@/models";
 import { authorize } from "@/lib/auth-utils";
+import { logAudit } from "@/lib/audit-service";
 
 export async function POST(
     req: NextRequest,
@@ -52,6 +53,18 @@ export async function POST(
 
         project.deployStatus = 'deploying';
         await project.save();
+
+        // Log the deployment trigger
+        await logAudit({
+            actorId: (session.user as any).id,
+            actorName: session.user.name || 'User',
+            actorType: 'user',
+            action: 'deploy_trigger',
+            entityType: 'deployment',
+            entityId: project._id.toString(),
+            projectId: id,
+            description: `${session.user.name} triggered deployment for ${project.name} to ${project.deployProvider}`
+        });
 
         return NextResponse.json({ success: true, deployInfo });
     } catch (e: any) {

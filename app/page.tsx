@@ -224,7 +224,7 @@ export default function Dashboard() {
             </div>
           </div>
 
-          <div className="space-y-4">
+          <div className="space-y-4 max-h-[740px] overflow-y-auto pr-2 custom-scrollbar">
             {isLoading ? (
               <div className="p-16 text-center border border-dashed border-gray-800 rounded-3xl">
                 <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4" />
@@ -309,7 +309,7 @@ export default function Dashboard() {
         </div>
 
         {/* Sidebar */}
-        <div className="space-y-6">
+        <div className="space-y-6 mb-12">
           {/* Project Health */}
           <div className="p-6 rounded-3xl border border-gray-800 bg-gradient-to-br from-gray-900/50 to-black/50 space-y-4">
             <div className="flex items-center justify-between">

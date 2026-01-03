@@ -4,10 +4,20 @@ import { Resend } from 'resend';
 import mongoose from 'mongoose';
 
 const resendApiKey = process.env.RESEND_API_KEY;
-if (!resendApiKey || resendApiKey === 're_123') {
-    console.warn("[NotificationService] RESEND_API_KEY is missing or placeholder. Emails will not be sent.");
-}
+// Initialize with dummy if missing to avoid crash; checks happen in functions
 const resend = new Resend(resendApiKey || 're_123');
+
+function verifyResendConfig() {
+    if (!resendApiKey || resendApiKey === 're_123') {
+        if (process.env.NODE_ENV === 'production') {
+            console.error("[NotificationService] CRITICAL: RESEND_API_KEY is missing. Emails will not be sent.");
+        } else if (process.env.NODE_ENV === 'development') {
+            console.warn("[NotificationService] RESEND_API_KEY is missing. Emails will be disabled.");
+        }
+        return false;
+    }
+    return true;
+}
 
 export type NotificationType = 'pr_created' | 'pr_merged' | 'task_assigned' | 'ops_incident' | 'conflict';
 
@@ -37,7 +47,7 @@ export async function createNotification(userId: string, payload: NotificationPa
     });
 
     // If critical, trigger email via Resend
-    if (isCritical) {
+    if (isCritical && verifyResendConfig()) {
         try {
             const user = await User.findById(userId);
             const project = projectId ? await Project.findById(projectId) : null;
@@ -104,6 +114,7 @@ export async function notifyAllProjectMembers(projectId: string, payload: Omit<N
  * Sends a project invitation email
  */
 export async function sendInviteEmail(email: string, name: string, projectName: string, role: string) {
+    if (!verifyResendConfig()) return false;
     try {
         await resend.emails.send({
             from: 'DeployOps <onboarding@resend.dev>',

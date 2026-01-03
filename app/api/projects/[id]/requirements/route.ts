@@ -1,6 +1,9 @@
 import { NextResponse } from 'next/server';
 import dbConnect from '@/lib/mongodb';
 import { Requirement } from '@/models';
+import { getServerSession } from "next-auth/next";
+import { authOptions } from "@/app/api/auth/[...nextauth]/route";
+import { logAudit } from '@/lib/audit-service';
 
 export async function GET(
     req: Request,
@@ -33,6 +36,20 @@ export async function POST(
             priority: priority || 'medium',
             status: status || 'draft',
             createdBy: createdBy || 'admin'
+        });
+
+        const session = await getServerSession(authOptions);
+
+        // Log requirement creation
+        await logAudit({
+            actorId: session?.user ? (session.user as any).id : 'system',
+            actorName: session?.user?.name || 'AI Designer',
+            actorType: session?.user ? 'user' : 'ai',
+            action: 'requirement_create',
+            entityType: 'requirement',
+            entityId: requirement._id.toString(),
+            projectId: id,
+            description: `${session?.user?.name || 'AI Designer'} created requirement: ${requirement.title}`
         });
 
         return NextResponse.json(requirement, { status: 201 });

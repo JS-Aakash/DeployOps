@@ -67,7 +67,7 @@ export default function ProjectChatPage({ params }: { params: Promise<{ id: stri
     useEffect(() => {
         fetchMessages();
         fetchMembers();
-        const interval = setInterval(() => fetchMessages(true), 3000);
+        const interval = setInterval(() => fetchMessages(true), 30000);
         return () => clearInterval(interval);
     }, [id]);
 

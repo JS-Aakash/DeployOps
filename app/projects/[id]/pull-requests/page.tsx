@@ -43,6 +43,7 @@ export default function PullRequestsPage({ params }: { params: Promise<{ id: str
     const [selectedPr, setSelectedPr] = useState<PRDetails | null>(null);
     const [isMerging, setIsMerging] = useState(false);
     const [showMergeConfirm, setShowMergeConfirm] = useState(false);
+    const [comment, setComment] = useState("");
     const [headerError, setHeaderError] = useState<string | null>(null);
     const [searchQuery, setSearchQuery] = useState("");
 
@@ -74,13 +75,18 @@ export default function PullRequestsPage({ params }: { params: Promise<{ id: str
             const res = await fetch(`/api/pull-requests/merge`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ issueId: selectedPr.issueId, confirm: true })
+                body: JSON.stringify({
+                    issueId: selectedPr.issueId,
+                    confirm: true,
+                    comment: comment
+                })
             });
 
             const data = await res.json();
             if (res.ok) {
                 alert("Merged Successfully!");
                 setShowMergeConfirm(false);
+                setComment("");
                 setSelectedPr(null);
                 fetchPrs();
             } else {
@@ -323,6 +329,18 @@ export default function PullRequestsPage({ params }: { params: Promise<{ id: str
                         <p className="text-gray-400 text-sm mb-8">
                             Are you sure you want to merge this AI-generated PR? This will close the issue and commit changes to the main branch.
                         </p>
+
+                        <div className="mb-6 text-left">
+                            <label className="text-xs font-bold text-gray-500 uppercase tracking-widest ml-1 mb-2 block">
+                                Approval Comment (Optional)
+                            </label>
+                            <textarea
+                                value={comment}
+                                onChange={(e) => setComment(e.target.value)}
+                                placeholder="Add reasoning for future audit logs..."
+                                className="w-full bg-black/40 border border-gray-800 rounded-2xl p-4 text-sm text-gray-300 focus:outline-none focus:border-blue-500/50 min-h-[100px] resize-none"
+                            />
+                        </div>
 
                         <div className="flex gap-4">
                             <button

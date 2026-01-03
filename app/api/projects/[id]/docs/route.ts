@@ -4,6 +4,7 @@ import { Documentation, User } from '@/models';
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import { authorize, authError } from "@/lib/auth-utils";
+import { logAudit } from "@/lib/audit-service";
 
 export async function GET(
     req: Request,
@@ -58,6 +59,18 @@ export async function POST(
             content,
             category,
             createdBy: user._id
+        });
+
+        // Log documentation creation
+        await logAudit({
+            actorId: user._id.toString(),
+            actorName: user.name,
+            actorType: 'user',
+            action: 'docs_create',
+            entityType: 'requirement', // Mapping docs to requirement category for simplicity in audit model
+            entityId: doc._id.toString(),
+            projectId: id,
+            description: `${user.name} created documentation: ${doc.title}`
         });
 
         return NextResponse.json(doc, { status: 201 });

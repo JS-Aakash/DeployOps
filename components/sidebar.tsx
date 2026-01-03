@@ -28,20 +28,39 @@ const menuItems = [
     { icon: CheckSquare, label: "Tasks", href: "/tasks" },
     { icon: Bell, label: "Notifications", href: "/notifications" },
     { icon: Activity, label: "Monitoring", href: "/monitoring" },
-    { icon: ShieldCheck, label: "Admin", href: "/admin" },
+    { icon: Settings, label: "Admin", href: "/admin", adminOnly: true },
 ];
 
 export function Sidebar() {
     const pathname = usePathname();
     const { data: session } = useSession();
     const [stats, setStats] = useState({ projects: 0, issues: 0 });
+    const [isAdmin, setIsAdmin] = useState(false);
 
     useEffect(() => {
         fetch('/api/stats')
             .then(res => res.json())
             .then(data => setStats({ projects: data.stats?.projects || 0, issues: data.stats?.issues || 0 }))
             .catch(() => { });
-    }, []);
+
+        // Dynamic admin check to account for stale sessions
+        if (session?.user) {
+            fetch('/api/auth/check-admin')
+                .then(res => res.json())
+                .then(data => setIsAdmin(data.isAdmin))
+                .catch(() => setIsAdmin(false));
+        }
+    }, [session]);
+
+    const filteredMenuItems = menuItems.filter(item => {
+        if (item.adminOnly) {
+            // First check the session (fast)
+            if ((session?.user as any)?.role === 'admin') return true;
+            // Then check the dynamic state (to handle new projects/promotions)
+            return isAdmin;
+        }
+        return true;
+    });
 
     return (
         <aside className="w-64 bg-black/50 border-r border-gray-800 flex flex-col h-screen sticky top-0">
@@ -58,7 +77,7 @@ export function Sidebar() {
             </div>
 
             <nav className="flex-1 p-4 space-y-2 overflow-y-auto">
-                {menuItems.map((item) => {
+                {filteredMenuItems.map((item) => {
                     const isActive = pathname === item.href;
                     return (
                         <Link

@@ -2,6 +2,9 @@ import { NextResponse } from 'next/server';
 import dbConnect from '@/lib/mongodb';
 import { Project, ProjectMember, User } from '@/models';
 import { authorize, authError } from '@/lib/auth-utils';
+import { logAudit } from '@/lib/audit-service';
+import { getServerSession } from "next-auth/next";
+import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import mongoose from 'mongoose';
 
 export async function GET(
@@ -46,8 +49,6 @@ export async function POST(
         if (!project) return NextResponse.json({ error: "Project not found" }, { status: 404 });
 
         // profile enrichment tools
-        const { getServerSession } = require("next-auth/next");
-        const { authOptions } = require("@/app/api/auth/[...nextauth]/route");
         const { Octokit } = require("@octokit/rest");
         const session = await getServerSession(authOptions);
         const githubToken = (session as any)?.accessToken || process.env.GITHUB_TOKEN;
@@ -121,8 +122,6 @@ export async function POST(
         // 2. Try to Invite to GitHub Repository
         if (user.githubUsername && project.owner && project.repo) {
             try {
-                const { getServerSession } = require("next-auth/next");
-                const { authOptions } = require("@/app/api/auth/[...nextauth]/route");
                 const { Octokit } = require("@octokit/rest");
 
                 const session = await getServerSession(authOptions);
@@ -142,6 +141,18 @@ export async function POST(
                 console.error("GitHub Invitation Failed (User might already be a member or token lacks permission):", ghError);
             }
         }
+
+        // Log the member change
+        await logAudit({
+            actorId: (session?.user as any).id,
+            actorName: session?.user?.name || 'Admin',
+            actorType: 'user',
+            action: 'member_update',
+            entityType: 'project',
+            entityId: id,
+            projectId: id,
+            description: `${session?.user?.name} updated/added member ${user.name} with role ${role}`
+        });
 
         return NextResponse.json({ success: true, member });
     } catch (error: any) {
@@ -166,7 +177,23 @@ export async function DELETE(
 
     await dbConnect();
     try {
+        const member = await ProjectMember.findById(memberId).populate('userId');
         await ProjectMember.findByIdAndDelete(memberId);
+
+        const session = await getServerSession(authOptions);
+
+        // Log the member removal
+        await logAudit({
+            actorId: (session?.user as any).id,
+            actorName: session?.user?.name || 'Admin',
+            actorType: 'user',
+            action: 'member_remove',
+            entityType: 'project',
+            entityId: projectId,
+            projectId: projectId,
+            description: `${session?.user?.name} removed member ${(member as any)?.userId?.name || 'Unknown'} from project`
+        });
+
         return NextResponse.json({ message: "Member removed successfully" });
     } catch (error: any) {
         return NextResponse.json({ error: error.message }, { status: 500 });

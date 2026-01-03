@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import dbConnect from '@/lib/mongodb';
 import { Project, ProjectMember, User } from '@/models';
+import { logAudit } from '@/lib/audit-service';
 
 export async function GET() {
     const session = await getServerSession(authOptions);
@@ -101,6 +102,20 @@ export async function POST(req: Request) {
                 role: 'admin'
             });
         }
+
+        // Log the project creation
+        await logAudit({
+            actorId: (session.user as any).id,
+            actorName: session.user.name || 'User',
+            actorType: 'user',
+            action: createRepo ? 'project_native_create' : 'project_import',
+            entityType: 'project',
+            entityId: project._id.toString(),
+            projectId: project._id.toString(),
+            description: createRepo
+                ? `${session.user.name} created brand new project and repo: ${project.name}`
+                : `${session.user.name} imported project from GitHub: ${project.name}`
+        });
 
         return NextResponse.json(project, { status: 201 });
     } catch (error: any) {

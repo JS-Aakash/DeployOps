@@ -7,6 +7,7 @@ const UserSchema = new Schema({
     image: { type: String },
     githubUsername: { type: String },
     source: { type: String, enum: ['manual', 'github'], default: 'manual' },
+    role: { type: String, enum: ['user', 'admin'], default: 'user' },
 }, { timestamps: true });
 
 // Project Schema
@@ -191,6 +192,30 @@ const AffinityItemSchema = new Schema({
     color: { type: String, default: 'bg-yellow-200' }, // Note color
 }, { timestamps: true });
 
+// Audit Log Schema
+const AuditLogSchema = new Schema({
+    actorId: { type: String }, // User ID or null for system
+    actorName: { type: String, required: true }, // "Aakash", "AI Agent", "System"
+    actorType: {
+        type: String,
+        enum: ['user', 'ai', 'system'],
+        required: true
+    },
+    action: { type: String, required: true },
+    entityType: {
+        type: String,
+        enum: ['project', 'issue', 'requirement', 'pr', 'deployment', 'auth'],
+        required: true
+    },
+    entityId: { type: String }, // ID or Name
+    projectId: { type: Schema.Types.ObjectId, ref: 'Project' },
+    description: { type: String, required: true },
+    metadata: { type: Schema.Types.Mixed }, // Optional extra info
+}, { timestamps: true });
+
+AuditLogSchema.index({ createdAt: -1 });
+AuditLogSchema.index({ projectId: 1, createdAt: -1 });
+
 // Helper to handle model re-registration in Next.js HMR
 const getModel = (name: string, schema: Schema) => {
     return models[name] || model(name, schema);
@@ -208,3 +233,4 @@ export const Monitoring = getModel('Monitoring', MonitoringSchema);
 export const Notification = getModel('Notification', NotificationSchema);
 export const AffinityGroup = getModel('AffinityGroup', AffinityGroupSchema);
 export const AffinityItem = getModel('AffinityItem', AffinityItemSchema);
+export const AuditLog = getModel('AuditLog', AuditLogSchema);

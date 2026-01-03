@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import dbConnect from '@/lib/mongodb';
 import { ProjectMember, User } from '@/models';
+import { isGlobalAdmin, authError } from '@/lib/auth-utils';
 
 export async function PATCH(
     req: NextRequest,
@@ -16,19 +17,8 @@ export async function PATCH(
 
     await dbConnect();
     try {
-        const currentUser = await User.findOne({ email: session.user.email.toLowerCase() });
-        if (!currentUser) {
-            return NextResponse.json({ error: "User not found" }, { status: 404 });
-        }
-
-        // Check if current user is admin
-        const adminMembership = await ProjectMember.findOne({
-            userId: currentUser._id,
-            role: 'admin'
-        });
-
-        if (!adminMembership) {
-            return NextResponse.json({ error: "Admin access required" }, { status: 403 });
+        if (!(await isGlobalAdmin())) {
+            return authError();
         }
 
         const body = await req.json();
@@ -64,19 +54,8 @@ export async function DELETE(
 
     await dbConnect();
     try {
-        const currentUser = await User.findOne({ email: session.user.email.toLowerCase() });
-        if (!currentUser) {
-            return NextResponse.json({ error: "User not found" }, { status: 404 });
-        }
-
-        // Check if current user is admin
-        const adminMembership = await ProjectMember.findOne({
-            userId: currentUser._id,
-            role: 'admin'
-        });
-
-        if (!adminMembership) {
-            return NextResponse.json({ error: "Admin access required" }, { status: 403 });
+        if (!(await isGlobalAdmin())) {
+            return authError();
         }
 
         const { searchParams } = new URL(req.url);

@@ -2,6 +2,8 @@ import NextAuth, { NextAuthOptions } from "next-auth";
 import GitHubProvider from "next-auth/providers/github";
 import dbConnect from "@/lib/mongodb";
 import { User } from "@/models";
+import { logAudit } from "@/lib/audit-service";
+import { checkIsGlobalAdmin } from "@/lib/auth-utils";
 
 export const authOptions: NextAuthOptions = {
     providers: [
@@ -28,17 +30,33 @@ export const authOptions: NextAuthOptions = {
         async signIn({ user, account, profile }: any) {
             await dbConnect();
             try {
-                // Upsert user in our database
-                await User.findOneAndUpdate(
+                const userCount = await User.countDocuments();
+                const isAdminEmail = process.env.ADMIN_EMAIL && user.email.toLowerCase() === process.env.ADMIN_EMAIL.toLowerCase();
+
+                const dbUser = await User.findOneAndUpdate(
                     { email: user.email.toLowerCase() },
                     {
                         name: user.name,
                         image: user.image,
                         githubUsername: user.githubUsername,
-                        source: 'github'
+                        source: 'github',
+                        // Promote to admin if specified in env OR if they are the first user ever
+                        ...((isAdminEmail || userCount === 0) ? { role: 'admin' } : {})
                     },
                     { upsert: true, new: true }
                 );
+
+                // Log the audit event
+                await logAudit({
+                    actorId: dbUser._id.toString(),
+                    actorName: dbUser.name,
+                    actorType: 'user',
+                    action: 'login',
+                    entityType: 'auth',
+                    entityId: dbUser._id.toString(),
+                    description: `${dbUser.name} logged in via GitHub`
+                });
+
                 return true;
             } catch (error) {
                 console.error("Error during sign in:", error);
@@ -49,6 +67,7 @@ export const authOptions: NextAuthOptions = {
             if (session.user) {
                 session.user.id = token.mongodbId;
                 session.user.githubUsername = token.githubUsername;
+                session.user.role = token.role;
                 (session as any).accessToken = token.accessToken;
             }
             return session;
@@ -61,6 +80,17 @@ export const authOptions: NextAuthOptions = {
                     const dbUser = await User.findOne({ email: token.email.toLowerCase() });
                     if (dbUser) {
                         token.mongodbId = dbUser._id.toString();
+
+                        // Dynamically determine role: 
+                        // If they have the 'admin' role in DB, they are admin.
+                        // Otherwise, check if they own or manage any projects.
+                        if ((dbUser as any).role === 'admin') {
+                            token.role = 'admin';
+                        } else {
+                            // Run the complex logic from lib/auth-utils using the email directly
+                            const isGlobal = await checkIsGlobalAdmin(token.email);
+                            token.role = isGlobal ? 'admin' : 'user';
+                        }
                     }
                 }
 
@@ -80,7 +110,7 @@ export const authOptions: NextAuthOptions = {
     session: {
         strategy: 'jwt',
     },
-    secret: process.env.NEXTAUTH_SECRET,
+    secret: process.env.NEXTAUTH_SECRET || "fallback-secret-for-development-and-build",
 };
 
 const handler = NextAuth(authOptions);
